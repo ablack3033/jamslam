@@ -162,6 +162,21 @@ class SegmentConfig:
     # one long note to a pitch tracker. Onsets are the only way to split them.
     use_onsets_to_split: bool = True
     onset_split_min_sec: float = 0.10
+    # The same guard expressed musically, which is what it should always have
+    # been. In absolute seconds the rule is tempo-blind: at 124 BPM an eighth
+    # note lasts 0.242 s, so 0.10 s lets any onset landing in its middle 40 ms
+    # cut it into two sixteenths -- and in a jam texture onsets land there
+    # constantly. Measured, that produced twice as many notes as the truth,
+    # each half the correct length: 220 sixteenths where the tune has 94
+    # eighths.
+    #
+    # 0.45 beats is just under an eighth, so an eighth can no longer be split
+    # while a quarter still can. That matches what the splitter is *for*:
+    # separating rearticulated repeated notes, which in this repertoire means
+    # two eighths in a row on one pitch, not two sixteenths.
+    #
+    # Falls back to onset_split_min_sec when the tempo is unknown.
+    onset_split_min_beats: float = 0.45
     onset_strength_percentile: float = 70.0
     merge_same_pitch_gap_sec: float = 0.03
 
@@ -178,6 +193,18 @@ class RhythmConfig:
     quantize_grid: int = 4  # sixteenth-note grid (4 slots per beat)
     allow_dotted: bool = True
     max_quantize_error_beats: float = 0.28
+    # A note shorter than this fraction of the local median note length is an
+    # artifact of melody selection briefly following another instrument, not a
+    # melody note. Relative rather than absolute so that a genuine run of
+    # sixteenths, where everything is short, survives untouched.
+    #
+    # Off by default: measured, not assumed. It was built to attack the
+    # fragmented-duration problem and turned out not to be its cause, and with
+    # the real cause fixed in consensus it is very slightly harmful --
+    # duration 0.53 with it against 0.56 without, on the same corpus. Kept
+    # switchable because it may earn its place once melody selection improves.
+    interloper_ratio: float = 0.0
+    interloper_window: int = 8
 
 
 @dataclass(frozen=True)
@@ -270,6 +297,11 @@ class ConsensusConfig:
     agreement_uncertain_below: float = 0.7
     # Weight each pass by its own extraction confidence when voting.
     weight_by_confidence: bool = True
+    # Share of passes that must agree a new note began at a slot before the
+    # note run is broken there. Rearticulated repeated notes are real and must
+    # survive, but this used to be a union rather than a vote -- one pass was
+    # enough -- which fragmented nearly every note into a single slot.
+    rearticulation_min_share: float = 0.5
 
 
 @dataclass(frozen=True)

@@ -40,6 +40,11 @@ from .form import FORM_GRID, REST, FormAnalysis, SectionInstance, notes_to_slots
 
 CONSENSUS_GRID = 4  # sixteenth-note slots; finer than form analysis needs
 
+#: Shortest note a rearticulation break is allowed to create, in slots. Two
+#: slots is an eighth note, which is the shortest thing this repertoire
+#: routinely repeats on one pitch.
+MIN_REARTICULATION_SLOTS = 2
+
 
 @dataclass
 class ConsensusReport:
@@ -114,7 +119,8 @@ def build_section(
         [instances[i] for i in used], beats_per_section, "quantization_error_beats"
     )
     notes = _slots_to_notes(
-        voted, agreement, alternatives, instances, ccfg, salience, qerror
+        voted, agreement, alternatives, instances, ccfg, salience, qerror,
+        cfg.rearticulation_min_share,
     )
     measures = _to_measures(notes, beats_per_bar, beats_per_section, bar_lengths)
 
@@ -271,6 +277,41 @@ def _mean_scalar_slots(
     return total / np.maximum(count, 1.0)
 
 
+def _rearticulation_slots(
+    instances: list[SectionInstance], n: int, min_share: float
+) -> np.ndarray:
+    """Slots where the passes *agree* a new note began.
+
+    Preserving rearticulation matters: two eighth notes on one pitch must not
+    collapse into a quarter. But the test has to be a vote, not a union.
+
+    Taking the union across passes -- marking a slot if *any* pass started a
+    note there -- was a bug that got worse the more evidence it had. With four
+    passes of fifty notes over a hundred and twenty-eight slots, nearly every
+    slot ends up marked, no run ever merges, and every note comes out one slot
+    long. Measured, that turned a tune of 94 eighths and 17 quarters into 184
+    sixteenths, and it is the single largest cause of this project's duration
+    accuracy sitting near zero.
+
+    Votes are counted at the exact slot. Widening each pass's vote to a
+    three-slot window was tried, to absorb human timing, and it saturates: a
+    pass with fifty notes then marks a hundred and fifty positions across a
+    hundred and twenty-eight slots, so every slot carries every pass's vote and
+    no threshold means anything. Measured, 96% of slots came back marked at a
+    half share and 72% even when *all* passes were required.
+    """
+    votes = np.zeros(n)
+    for inst in instances:
+        marked = np.zeros(n, dtype=bool)
+        for note in inst.notes:
+            idx = int(round(float(note.start_beats) * CONSENSUS_GRID))
+            if 0 <= idx < n:
+                marked[idx] = True
+        votes += marked
+    threshold = max(1.0, min_share * len(instances))
+    return votes >= threshold
+
+
 def _slots_to_notes(
     voted: np.ndarray,
     agreement: np.ndarray,
@@ -279,6 +320,7 @@ def _slots_to_notes(
     ccfg: ConfidenceConfig,
     salience: np.ndarray,
     qerror: np.ndarray,
+    rearticulation_min_share: float = 0.5,
 ) -> list[Note]:
     """Collapse the voted slot array back into notes.
 
@@ -289,19 +331,21 @@ def _slots_to_notes(
     """
     notes: list[Note] = []
     n = len(voted)
-    # Slots at which some pass started a note; used to preserve rearticulation.
-    starts = np.zeros(n, dtype=bool)
-    for inst in instances:
-        for note in inst.notes:
-            idx = int(round(float(note.start_beats) * CONSENSUS_GRID))
-            if 0 <= idx < n:
-                starts[idx] = True
+    starts = _rearticulation_slots(instances, n, rearticulation_min_share)
 
     i = 0
     while i < n:
         pitch = int(voted[i])
         j = i + 1
-        while j < n and int(voted[j]) == pitch and not starts[j]:
+        # A rearticulation break may not create a note shorter than
+        # MIN_REARTICULATION_SLOTS. The voted run structure is already correct
+        # for every change of pitch -- measured, its median run is exactly one
+        # eighth note -- so breaking a run is only ever needed to separate
+        # *repeated* notes on one pitch, and such a break should never produce
+        # something shorter than the notes it is separating.
+        while j < n and int(voted[j]) == pitch and not (
+            starts[j] and j - i >= MIN_REARTICULATION_SLOTS
+        ):
             j += 1
         span_agree = float(np.mean(agreement[i:j])) if j > i else 0.0
         dur = Fraction(j - i, CONSENSUS_GRID)

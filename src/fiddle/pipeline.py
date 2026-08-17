@@ -99,7 +99,12 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
     log.extend(f"rhythm: {n}" for n in rhythm.notes)
 
     # 4. Segment the contour into notes, using onsets to split rearticulations.
-    raw_notes = segment_notes(cleaned, cfg.segment, onset_times=rhythm.onset_times)
+    # The tempo makes the onset-splitting guard musical instead of tempo-blind:
+    # without it the splitter cuts eighth notes in half wherever the band
+    # happens to play. See segment._split_by_onsets.
+    beat_seconds = 60.0 / rhythm.tempo_bpm if rhythm.tempo_bpm > 0 else None
+    raw_notes = segment_notes(cleaned, cfg.segment, onset_times=rhythm.onset_times,
+                              beat_seconds=beat_seconds)
     log.append(f"segment: {len(raw_notes)} raw notes")
 
     # 5. Quantize onto the raw beat grid, with no phase applied yet.

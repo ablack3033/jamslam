@@ -18,7 +18,7 @@ The two things that actually go wrong here, in order:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 
 import numpy as np
@@ -201,6 +201,47 @@ def quantize_notes(
                 quantization_error_beats=float(err),
             )
         )
+    return _absorb_interlopers(out, cfg)
+
+
+def _absorb_interlopers(notes: list[TimedNote], cfg: RhythmConfig) -> list[TimedNote]:
+    """Remove notes far shorter than the line around them.
+
+    Melody selection picks the strongest note at each instant, so whenever an
+    accompaniment note is briefly louder than the fiddle it appears as a short
+    note wedged between two melody notes. Those interlopers are what fragment
+    the line: measured, 45% of quantized notes came out a sixteenth long while
+    the tune is written almost entirely in eighths, and each one splits the note
+    it interrupts.
+
+    The test is *relative* to the local note length rather than absolute,
+    because a genuine run of sixteenths is short everywhere -- there the median
+    is short too and nothing is absorbed. Only a note much shorter than its own
+    neighbourhood is treated as an artifact, and its time is given back to the
+    note it interrupted.
+    """
+    if cfg.interloper_ratio <= 0.0 or len(notes) < 3:
+        return notes
+
+    durations = np.array([float(n.duration_beats) for n in notes])
+    out: list[TimedNote] = []
+    half = max(1, cfg.interloper_window // 2)
+    for i, note in enumerate(notes):
+        lo, hi = max(0, i - half), min(len(notes), i + half + 1)
+        local = np.median(np.delete(durations[lo:hi], min(i - lo, hi - lo - 1)))
+        interloper = (
+            out
+            and float(note.duration_beats) < cfg.interloper_ratio * local
+            and note.pitch != out[-1].pitch
+        )
+        if interloper:
+            # Hand the time back to the note this one interrupted.
+            out[-1] = replace(
+                out[-1],
+                duration_beats=out[-1].duration_beats + note.duration_beats,
+            )
+            continue
+        out.append(note)
     return out
 
 

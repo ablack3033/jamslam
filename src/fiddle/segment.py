@@ -23,12 +23,15 @@ def segment_notes(
     contour: PitchContour,
     config: SegmentConfig | None = None,
     onset_times: np.ndarray | None = None,
+    beat_seconds: float | None = None,
 ) -> list[RawNote]:
     """Segment ``contour`` into notes, optionally splitting at ``onset_times``.
 
     ``onset_times`` comes from the rhythm module rather than being computed
     here, so that pitch and rhythm analysis stay independent and each can be
-    replaced on its own.
+    replaced on its own. ``beat_seconds`` comes from the same place and makes
+    the onset-splitting guard musical rather than tempo-blind -- see
+    :func:`_split_by_onsets`.
     """
     cfg = config or SegmentConfig()
     midi = np.asarray(contour.midi, dtype=float)
@@ -41,7 +44,8 @@ def segment_notes(
         boundaries.extend(_split_run_by_pitch(midi, s, e, cfg))
 
     if cfg.use_onsets_to_split and onset_times is not None and len(onset_times):
-        boundaries = _split_by_onsets(boundaries, times, midi, onset_times, cfg, hop)
+        boundaries = _split_by_onsets(boundaries, times, midi, onset_times, cfg,
+                                      hop, beat_seconds)
 
     notes = [_make_note(midi, conf, times, hop, s, e) for s, e in boundaries]
     notes = [n for n in notes if n.duration_sec >= cfg.min_note_sec]
@@ -97,22 +101,32 @@ def _split_by_onsets(
     onset_times: np.ndarray,
     cfg: SegmentConfig,
     hop: float,
+    beat_seconds: float | None = None,
 ) -> list[tuple[int, int]]:
     """Subdivide long constant-pitch segments at detected onsets.
 
     Guarded three ways so we do not shred legitimate long notes: the segment
     must be long enough to hold two notes, both halves must clear the minimum
     duration, and the onset must fall comfortably inside the segment.
+
+    That minimum is measured in *beats* when the tempo is known. Stated in
+    seconds it is tempo-blind, and at old-time dance tempo 0.10 s is under half
+    an eighth note -- so any onset landing mid-note split it in two, and a jam
+    texture supplies such onsets constantly. Measured on the corpus, that
+    produced 220 sixteenth notes where the tune has 94 eighths.
     """
     out: list[tuple[int, int]] = []
-    min_frames = max(1, int(cfg.onset_split_min_sec / hop))
+    min_seconds = cfg.onset_split_min_sec
+    if beat_seconds and beat_seconds > 0:
+        min_seconds = max(min_seconds, cfg.onset_split_min_beats * beat_seconds)
+    min_frames = max(1, int(min_seconds / hop))
     for s, e in boundaries:
         if e - s < 2 * min_frames:
             out.append((s, e))
             continue
         t0, t1 = times[s], times[min(e, len(times) - 1)]
-        inside = onset_times[(onset_times > t0 + cfg.onset_split_min_sec)
-                             & (onset_times < t1 - cfg.onset_split_min_sec)]
+        inside = onset_times[(onset_times > t0 + min_seconds)
+                             & (onset_times < t1 - min_seconds)]
         cuts = [s]
         for t in inside:
             idx = int(np.searchsorted(times, t))

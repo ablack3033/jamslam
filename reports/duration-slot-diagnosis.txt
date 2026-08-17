@@ -1,0 +1,10 @@
+section A: 4 passes, 32.0 beats, 128 slots
+  pass 0: 50 runs, median run 2.0 slots (0.50 beats)
+  pass 1: 57 runs, median run 2.0 slots (0.50 beats)
+  pass 2: 60 runs, median run 2.0 slots (0.50 beats)
+  VOTED : 54 runs, median run 2.0 slots (0.50 beats), mean agreement 0.72
+  rearticulation slots at share 0.5: 123/128 (96% of slots marked as a new note)
+  rearticulation slots at share 0.75: 117/128 (91% of slots marked as a new note)
+  rearticulation slots at share 1.0: 92/128 (72% of slots marked as a new note)
+
+[exited with code 0]

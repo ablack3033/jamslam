@@ -526,3 +526,39 @@ def test_section_search_stays_within_old_time_lengths():
     # One, two or occasionally three parts. Four let the search invent AABBCCD.
     assert cfg.max_sections == 3
     assert 8 in cfg.expected_section_bars
+
+
+def test_rearticulation_does_not_shred_notes_into_slots():
+    """Regression for the largest single cause of bad durations in this project.
+
+    Consensus preserved rearticulated repeated notes by breaking a run of slots
+    wherever a note had started. It took the *union* across passes, so with four
+    passes of fifty notes over a hundred and twenty-eight slots nearly every
+    slot was marked, no run ever merged, and every note came out one slot long.
+    A tune of 94 eighths and 17 quarters was transcribed as 184 sixteenths.
+
+    It is a bug that got worse the more evidence it was given, which is the
+    opposite of what consensus is for.
+    """
+    from fiddle.consensus import build_section
+
+    # Four passes of the same four eighth notes, with human timing jitter so
+    # each pass marks slightly different slots as note starts.
+    pitches = [74, 76, 78, 79]
+    instances = []
+    for k in range(4):
+        notes = []
+        for i, p in enumerate(pitches):
+            start = Fraction(i, 2) + (Fraction(1, 4) if (k + i) % 3 == 0 else 0)
+            notes.append(_tn(p, start, Fraction(1, 2)))
+        instances.append(SectionInstance("A", k, 0.0, 2.0, notes))
+
+    section, _ = build_section("A", instances, beats_per_section=2.0,
+                               beats_per_bar=4)
+    sounded = [n for n in section.notes if not n.is_rest]
+    assert sounded, "consensus produced no notes"
+    sixteenths = sum(1 for n in sounded if n.duration_beats <= Fraction(1, 4))
+    assert sixteenths <= len(sounded) / 2, (
+        f"{sixteenths} of {len(sounded)} notes came out a sixteenth or shorter; "
+        "the passes all played eighths"
+    )

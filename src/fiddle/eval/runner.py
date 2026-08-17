@@ -61,6 +61,23 @@ class CorpusResult:
         return out
 
 
+#: Rendered audio is identical across configurations, so an ablation that runs
+#: the corpus five times would otherwise spend ~40% of its wall clock
+#: re-synthesizing byte-identical audio. Keyed by everything that affects the
+#: render, and stores preprocessed audio since preprocessing is deterministic.
+_RENDER_CACHE: dict[tuple[str, str, int], tuple] = {}
+
+
+def _render_cached(tune: TuneDefinition, difficulty: str, seed: int):
+    from ..audio import preprocess
+
+    key = (tune.slug, difficulty, seed)
+    if key not in _RENDER_CACHE:
+        audio, truth = render_tune(tune, difficulty=difficulty, seed=seed)
+        _RENDER_CACHE[key] = (preprocess(audio), truth)
+    return _RENDER_CACHE[key]
+
+
 def run_synthetic(
     config: Config | None = None,
     tunes: list[TuneDefinition] | None = None,
@@ -75,10 +92,8 @@ def run_synthetic(
 
     for tune in tunes:
         for difficulty in difficulties:
-            audio, truth = render_tune(tune, difficulty=difficulty, seed=seed)
-            from ..audio import preprocess
-
-            result = transcribe(preprocess(audio), cfg)
+            audio, truth = _render_cached(tune, difficulty, seed)
+            result = transcribe(audio, cfg)
             score = score_transcription(
                 result.tune,
                 {s.name: s for s in truth.sections},

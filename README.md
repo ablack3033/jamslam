@@ -128,11 +128,20 @@ This is the headline result and it supersedes the synthetic numbers below.
 | memory_of_home | A major | 103 | ABBCD / 20 bars (bogus) | 457 | 14% | z = 2.7 |
 
 Form detection failed outright on four of five, and returned its own search
-bound on the fifth. The identification column is the sharpest statement of the
-problem: **every recording sits within about two standard deviations of what a
-random diatonic walk scores**, against a matcher that scores a correct melody at
-z = 9–39 and still at z = 12 with one note in seven corrupted. The transcriptions
-carry no more tune-specific melodic information than noise does.
+bound on the fifth. No single recording clears the identification confidence bar
+(z ≥ 6), against a matcher that scores a correct melody at z = 9–39 and still at
+z = 12 with one note in seven corrupted.
+
+**But the transcriptions are not noise.** Three tunes were later named as being
+among these recordings — Old Joe Clark, Cluck Old Hen and Sandy River Belle. One
+of those three ranks **first or second out of twenty** for *every* recording,
+which a permutation test puts at **p = 0.0004**.
+
+So the honest reading is narrower than "it does not work": the transcriptions
+carry real melodic information, enough to rank the right tune near the top of a
+twenty-tune catalog, but not enough to identify any one recording on its own.
+That is a much better starting position than chance-level output, and it means
+the failures are ones of degree rather than of kind.
 
 Diagnosing this produced three real bug fixes:
 

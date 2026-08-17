@@ -409,3 +409,48 @@ def test_presence_reports_nothing_voiced():
                         bass_contour=_fake_contour(np.full(500, np.nan)))
     assert not p.melody_found
     assert p.voiced_fraction == 0.0
+
+
+# --------------------------------------------------------------------------
+# melody tracking
+# --------------------------------------------------------------------------
+
+
+def test_persistence_marks_a_held_pitch_and_not_a_moving_one():
+    """The term that makes continuity safe to use, so it gets a direct test."""
+    from fiddle.melody.tracking import persistence_seconds
+
+    n = 400
+    held = [np.array([69.0]) for _ in range(n)]
+    moving = [np.array([60.0 + (i % 12)]) for i in range(n)]
+    hop = 0.01
+    assert persistence_seconds(held, hop)[n // 2][0] > 3.0
+    assert persistence_seconds(moving, hop)[n // 2][0] < 1.0
+
+
+def test_contour_decode_prefers_a_moving_line_over_a_louder_drone():
+    """The whole point: a salient sustained note must lose to a quieter melody."""
+    from fiddle.melody.tracking import decode_contours
+
+    hop = 0.01
+    n_frames = 600
+    # A loud drone spanning everything, and a quieter moving line beside it.
+    drone_pitch = np.full(600, 69.0)
+    drone_sal = np.full(600, 1.0)
+    melody = [np.full(100, p) for p in (74.0, 76.0, 78.0, 76.0, 74.0, 72.0)]
+    pitches = [drone_pitch] + melody
+    saliences = [drone_sal] + [np.full(100, 0.45) for _ in melody]
+    starts = [0] + [i * 100 for i in range(len(melody))]
+
+    midi, _ = decode_contours(pitches, saliences, starts, n_frames, hop)
+    chosen = midi[np.isfinite(midi)]
+    assert len(chosen) > 200
+    # It must not simply sit on the drone.
+    assert np.mean(np.abs(chosen - 69.0) < 0.5) < 0.5
+
+
+def test_contour_decode_returns_empty_for_no_contours():
+    from fiddle.melody.tracking import decode_contours
+
+    midi, conf = decode_contours([], [], [], 100, 0.01)
+    assert len(midi) == 100 and np.all(np.isnan(midi))

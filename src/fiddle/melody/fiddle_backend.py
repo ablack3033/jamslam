@@ -17,9 +17,10 @@ We know things about this material that a generic selector does not:
   bass even when it is quieter.
 * **A contour a fixed octave above a lower one is that lower one's harmonic.**
 
-So this backend reuses Essentia's salience and contour tracking -- the parts that
-work -- and replaces only the final selection step. It is the custom extractor
-the :class:`~fiddle.melody.MelodyExtractor` interface was designed to allow.
+So this backend reuses Essentia's salience function -- the part that works -- and
+replaces the selection step with a Viterbi decode that follows one line
+continuously (see :mod:`fiddle.melody.tracking`). It is the custom extractor the
+:class:`~fiddle.melody.MelodyExtractor` interface was designed to allow.
 """
 
 from __future__ import annotations
@@ -28,23 +29,21 @@ import numpy as np
 
 from ..config import MelodyConfig
 from ..domain import Audio, PitchContour
+from .tracking import TrackingWeights, decode_contours
 
 #: Salience-function reference; bins are measured in cents above this.
 _REFERENCE_HZ = 55.0
 _BIN_RESOLUTION = 10.0  # cents per bin
-
-#: A contour this long that barely moves is a drone, not a melodic line.
-_DRONE_MIN_DURATION = 0.7
-_DRONE_MAX_SPREAD_SEMITONES = 0.35
-
 
 class FiddleMelodyExtractor:
     """Salience-based extraction with melody selection tuned to fiddle jams."""
 
     name = "fiddle"
 
-    def __init__(self, config: MelodyConfig | None = None) -> None:
+    def __init__(self, config: MelodyConfig | None = None,
+                 weights: TrackingWeights | None = None) -> None:
         self.config = config or MelodyConfig()
+        self.weights = weights or TrackingWeights()
 
     def extract(self, audio: Audio) -> PitchContour:
         import essentia
@@ -83,92 +82,33 @@ class FiddleMelodyExtractor:
             all_sals.append(np.asarray(s, dtype=np.float32))
 
         hop_seconds = hop / sr
+        n_frames = len(all_bins)
+
+        # Let Essentia group frames into coherent fragments; we decide which
+        # fragments form the melody. Frame-level decoding was tried first and
+        # measured worse -- see fiddle.melody.tracking.
         contours = es.PitchContours(
             binResolution=_BIN_RESOLUTION, hopSize=hop, sampleRate=sr,
             peakDistributionThreshold=0.9, peakFrameThreshold=0.9,
             pitchContinuity=27.5625, timeContinuity=100.0, minDuration=100.0,
         )
-        bins, saliences, start_times, _ = contours(all_bins, all_sals)
-
-        n_frames = len(all_bins)
-        midi, conf = _select_melody(
-            bins, saliences, start_times, n_frames, hop_seconds
-        )
+        c_bins, c_sals, c_starts, _ = contours(all_bins, all_sals)
+        pitches = [_bins_to_midi(np.asarray(b)) for b in c_bins if len(b)]
+        saliences = [np.asarray(s, dtype=float) for s, b in zip(c_sals, c_bins) if len(b)]
+        starts = [int(round(float(t) / hop_seconds))
+                  for t, b in zip(c_starts, c_bins) if len(b)]
+        midi, conf = decode_contours(pitches, saliences, starts, n_frames,
+                                     hop_seconds, self.weights)
         return PitchContour(
             times=np.arange(n_frames) * hop_seconds,
             midi=midi,
             confidence=conf,
             hop_seconds=hop_seconds,
             backend=self.name,
-            history=["essentia:PitchSalienceFunction", "fiddle:voice_selection"],
+            history=["essentia:PitchSalienceFunction", "fiddle:viterbi_tracking"],
         )
 
 
 def _bins_to_midi(bins: np.ndarray) -> np.ndarray:
     hz = _REFERENCE_HZ * 2.0 ** (np.asarray(bins, dtype=float) * _BIN_RESOLUTION / 1200.0)
     return 69.0 + 12.0 * np.log2(hz / 440.0)
-
-
-def _select_melody(bins, saliences, start_times, n_frames, hop_seconds):
-    """Choose, for each frame, which tracked contour carries the melody.
-
-    Scores every contour once, then lets contours compete frame by frame. The
-    scoring is where the domain knowledge lives; the competition is deliberately
-    simple so the outcome stays explainable.
-    """
-    tracks = []
-    for contour_bins, contour_sals, t0 in zip(bins, saliences, start_times):
-        pitches = _bins_to_midi(np.asarray(contour_bins))
-        if len(pitches) == 0:
-            continue
-        start = int(round(float(t0) / hop_seconds))
-        duration = len(pitches) * hop_seconds
-        spread = float(np.percentile(pitches, 90) - np.percentile(pitches, 10))
-        mean_sal = float(np.mean(contour_sals)) if len(contour_sals) else 0.0
-
-        # A long contour that does not move is a drone or a held chord tone.
-        # This is the single most important term: it is what stops the selector
-        # locking onto the loudest sustained note in the room.
-        if duration > _DRONE_MIN_DURATION and spread < _DRONE_MAX_SPREAD_SEMITONES:
-            drone_penalty = 0.15
-        else:
-            drone_penalty = 1.0
-
-        tracks.append({
-            "start": start,
-            "pitches": pitches,
-            "saliences": np.asarray(contour_sals, dtype=float),
-            "median": float(np.median(pitches)),
-            "score": mean_sal * drone_penalty,
-        })
-
-    midi = np.full(n_frames, np.nan)
-    conf = np.zeros(n_frames)
-    if not tracks:
-        return midi, conf
-
-    # Melody is usually the top voice, so a contour is rewarded for sitting above
-    # the others. Measured against the overall distribution rather than pairwise,
-    # which keeps the decision stable when contours overlap only partially.
-    medians = np.array([t["median"] for t in tracks])
-    lo, hi = np.percentile(medians, 10), np.percentile(medians, 90)
-    span = max(hi - lo, 1e-6)
-    for t in tracks:
-        height = float(np.clip((t["median"] - lo) / span, 0.0, 1.0))
-        t["score"] *= 0.5 + 0.9 * height
-
-    best = np.full(n_frames, -np.inf)
-    for t in tracks:
-        s, e = t["start"], min(t["start"] + len(t["pitches"]), n_frames)
-        if e <= s:
-            continue
-        span_len = e - s
-        wins = t["score"] > best[s:e]
-        idx = np.arange(s, e)[wins]
-        midi[idx] = t["pitches"][:span_len][wins]
-        conf[idx] = t["saliences"][:span_len][wins] if len(t["saliences"]) >= span_len \
-            else t["score"]
-        best[s:e] = np.where(wins, t["score"], best[s:e])
-
-    peak = float(np.max(conf)) if np.any(conf > 0) else 1.0
-    return midi, np.clip(conf / peak, 0.0, 1.0)

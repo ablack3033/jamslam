@@ -139,6 +139,47 @@ under Basic Pitch.
 
 ---
 
+## End-to-end on all five recordings
+
+Full pipeline, not just extraction. Reports in
+[`reports/real-backend-comparison.txt`](../reports/real-backend-comparison.txt).
+
+| recording | Melodia form | Basic Pitch form | Melodia voiced | BP voiced |
+|---|---|---|---|---|
+| bebop_1 | **failed** | AABBCDD / 15 bar | 48% | 52% |
+| bebop_2 | **failed** | AABCD / 12 bar | 54% | 58% |
+| bebop_4 | **failed** | AABBCCD / 16 bar | 40% | 65% |
+| bebop_5 | **failed** | AABBCD / 16 bar | 47% | 53% |
+| memory_of_home | ABBCD / 20 bar | AABBCD / 16 bar | 46% | 77% |
+
+Three things moved together, which is the first time that has happened here.
+
+**The melody-presence check flips completely.** Under Melodia all five were
+flagged, at 75-91% of frames locked to the bass. Under Basic Pitch **all five
+pass**. That check was written to be hard to satisfy and has never before
+returned a clean verdict on real audio.
+
+**Form detection now returns structure on every recording** rather than failing
+outright on four of five. Every result still begins `AAB…`, which is the right
+shape, and confidences are 0.11-0.34, which is honestly low.
+
+**Identification strengthens sharply**: best z rises from 2.7 to 7.2. bebop_1
+now clears the z threshold (7.2 against a bar of 6) but fails on margin (0.3),
+and memory_of_home clears margin (4.4) but not z. **No recording is confidently
+identified**, so nothing here is confirmation of a tune name.
+
+### What is still wrong
+
+The section lengths are implausible. 12 to 16 bars per section, with forms
+running to six or seven distinct letters, is not what an old-time tune looks
+like — AABB with 8-bar sections is. So form is finding *something* periodic and
+carving it wrongly, rather than finding the tune's actual structure.
+
+Uncertain-note counts remain high (216-450 of 257-683 notes). At those rates the
+promised experience — correct two to five flagged notes — is not close.
+
+---
+
 ## The real blocker
 
 **No ground truth.** Every measure above is a proxy, and proxies are gameable —

@@ -1,0 +1,161 @@
+=== bebop_1
+key           A mixolydian  (confidence 0.47)
+meter         4/4  (confidence 0.42)
+tempo         112.3 BPM
+form          AABBCDD  (15 bars/section, confidence 0.21)
+notes         495 canonical, 216 flagged uncertain
+melody        basicpitch backend, 52% of frames voiced
+
+least confident notes:
+  beat    4.25  E4   55%
+  beat   14.50  A4   56%
+  beat   55.25  B4   56%
+  beat   55.50  B4   56%
+  beat   55.75  B4   56%
+  beat   56.00  B4   56%
+  beat   56.25  B4   56%
+  beat   57.00  B4   56%
+
+searched 20 catalog tunes against 692 transcribed notes
+
+tune                          key                   z  match  chance   sections
+------------------------------------------------------------------------------------
+Old Joe Clark                 A mixolydian        7.2  0.251   0.082   A=0.03 B=0.34
+Forked Deer                   D major             6.9  0.062   0.008   A=0.05 B=0.07
+Cluck Old Hen                 A dorian            4.1  0.256   0.072   A=0.15 B=0.36
+Over the Waterfall            D major             3.7  0.140   0.034   A=0.08 B=0.25
+Salt Creek                    A major             2.8  0.125   0.063   A=0.03 B=0.19
+
+=> no confident match (best Old Joe Clark at 7.2 sigma, margin 0.3). Either the tune is not in the catalog, or the transcription is too noisy to match.
+   'chance' is what this tune scores against meaningless stepwise input; raw scores are not comparable between tunes.
+
+wrote: bebop_1.pitch.csv, bebop_1.notes.json, bebop_1.musicxml, bebop_1.mid, bebop_1.abc
+=== bebop_2
+key           E dorian  (confidence 0.55)
+meter         4/4  (confidence 0.42)
+tempo         123.0 BPM
+form          AABCD  (12 bars/section, confidence 0.24)
+notes         257 canonical, 127 flagged uncertain
+melody        basicpitch backend, 58% of frames voiced
+
+least confident notes:
+  beat   22.00  E4   43%   alternatives: G5 33%, A4 33%
+  beat   20.25  E4   44%   alternatives: G5 33%, A4 33%
+  beat    1.50  E5   45%   alternatives: A#4 33%, A4 33%
+  beat    1.25  E5   46%   alternatives: A#4 33%, A4 33%
+  beat   11.00  E4   46%   alternatives: G4 33%, C#5 33%
+  beat    1.00  E5   46%   alternatives: A4 33%
+  beat    4.75  G5   47%   alternatives: E5 33%, A4 33%
+  beat   10.00  E4   49%   alternatives: A4 33%
+
+searched 20 catalog tunes against 382 transcribed notes
+
+tune                          key                   z  match  chance   sections
+------------------------------------------------------------------------------------
+Old Joe Clark                 A mixolydian        2.2  0.134   0.082   A=0.15 B=0.09
+Sandy River Belle             G major             0.0  0.049   0.049   A=0.07 B=0.00
+Cluck Old Hen                 A dorian           -0.8  0.038   0.072   A=0.00 B=0.08
+Forked Deer                   D major            -1.0  0.000   0.008   A=0.00 B=0.00
+Over the Waterfall            D major            -1.2  0.000   0.034   A=0.00 B=0.00
+
+=> no confident match (best Old Joe Clark at 2.2 sigma, margin 2.2). Either the tune is not in the catalog, or the transcription is too noisy to match.
+   'chance' is what this tune scores against meaningless stepwise input; raw scores are not comparable between tunes.
+
+wrote: bebop_2.pitch.csv, bebop_2.notes.json, bebop_2.musicxml, bebop_2.mid, bebop_2.abc
+=== bebop_4
+key           A mixolydian  (confidence 0.51)
+meter         4/4  (confidence 0.56)
+tempo         123.0 BPM
+form          AABBCCD  (16 bars/section, confidence 0.24)
+notes         610 canonical, 250 flagged uncertain
+melody        basicpitch backend, 65% of frames voiced
+
+least confident notes:
+  beat   41.25  D5   55%
+  beat   42.00  D5   55%
+  beat   11.25  A4   55%
+  beat   21.75  E5   56%
+  beat   22.00  E5   56%
+  beat   22.25  E5   56%
+  beat   10.50  A4   57%
+  beat   22.50  E4   57%
+
+searched 20 catalog tunes against 802 transcribed notes
+
+tune                          key                   z  match  chance   sections
+------------------------------------------------------------------------------------
+Salt Creek                    A major            -0.1  0.061   0.063   A=0.04 B=0.07
+Over the Waterfall            D major            -0.4  0.024   0.034   A=0.00 B=0.04
+Forked Deer                   D major            -1.0  0.000   0.008   A=0.00 B=0.00
+Cripple Creek                 A major            -1.2  0.080   0.122   A=0.09 B=0.04
+Fisher's Hornpipe             D major            -1.3  0.000   0.044   A=0.00 B=0.00
+
+=> no confident match (best Salt Creek at -0.1 sigma, margin 0.3). Either the tune is not in the catalog, or the transcription is too noisy to match.
+   'chance' is what this tune scores against meaningless stepwise input; raw scores are not comparable between tunes.
+
+wrote: bebop_4.pitch.csv, bebop_4.notes.json, bebop_4.musicxml, bebop_4.mid, bebop_4.abc
+=== bebop_5
+key           A major  (confidence 0.59)
+meter         4/4  (confidence 0.26)
+tempo         123.0 BPM
+form          AABBCD  (16 bars/section, confidence 0.34)
+notes         449 canonical, 361 flagged uncertain
+melody        basicpitch backend, 53% of frames voiced
+
+least confident notes:
+  beat   41.00  E5   39%   alternatives: D5 33%, A4 33%
+  beat    6.00  F#4  40%   alternatives: A4 33%, E4 33%
+  beat   38.75  A4   40%   alternatives: E5 49%
+  beat   37.25  A4   40%   alternatives: E5 49%
+  beat    4.50  A4   40%   alternatives: E5 33%, B4 33%
+  beat    4.75  A4   40%   alternatives: E5 33%, B4 33%
+  beat   37.00  A4   41%   alternatives: E5 49%
+  beat   40.75  E5   41%   alternatives: D5 33%, A4 33%
+
+searched 20 catalog tunes against 1024 transcribed notes
+
+tune                          key                   z  match  chance   sections
+------------------------------------------------------------------------------------
+Forked Deer                   D major             4.8  0.046   0.008   A=0.07 B=0.03
+Old Joe Clark                 A mixolydian        2.7  0.146   0.082   A=0.12 B=0.13
+Bill Cheatham                 A major             2.7  0.094   0.037   A=0.07 B=0.14
+Salt Creek                    A major             2.6  0.120   0.063   A=0.13 B=0.09
+Blackberry Blossom            G major             2.1  0.107   0.056   A=0.08 B=0.15
+
+=> no confident match (best Forked Deer at 4.8 sigma, margin 2.1). Either the tune is not in the catalog, or the transcription is too noisy to match.
+   'chance' is what this tune scores against meaningless stepwise input; raw scores are not comparable between tunes.
+
+wrote: bebop_5.pitch.csv, bebop_5.notes.json, bebop_5.musicxml, bebop_5.mid, bebop_5.abc
+=== memory_of_home
+key           A major  (confidence 0.57)
+meter         4/4  (confidence 0.37)
+tempo         103.4 BPM
+form          AABBCD  (16 bars/section, confidence 0.11)
+notes         683 canonical, 450 flagged uncertain
+melody        basicpitch backend, 77% of frames voiced
+
+least confident notes:
+  beat   52.75  E4   35%   alternatives: A4 31%
+  beat   58.25  E5   37%   alternatives: C#5 31%
+  beat   13.25  C#5  38%   alternatives: B4 33%, E4 31%
+  beat   62.75  E4   38%   alternatives: A4 31%
+  beat   63.75  E4   39%   alternatives: A4 31%
+  beat   57.75  A4   40%   alternatives: E4 31%
+  beat   29.25  E4   40%   alternatives: A4 33%, B4 31%
+  beat   57.25  C#5  40%   alternatives: E4 31%
+
+searched 20 catalog tunes against 920 transcribed notes
+
+tune                          key                   z  match  chance   sections
+------------------------------------------------------------------------------------
+Old Joe Clark                 A mixolydian        4.7  0.192   0.082   A=0.21 B=0.13
+Fisher's Hornpipe             D major             0.2  0.052   0.044   A=0.00 B=0.08
+Cluck Old Hen                 A dorian            0.1  0.077   0.072   A=0.15 B=0.00
+Over the Waterfall            D major            -0.1  0.030   0.034   A=0.05 B=0.00
+Sandy River Belle             G major            -0.4  0.039   0.049   A=0.05 B=0.00
+
+=> no confident match (best Old Joe Clark at 4.7 sigma, margin 4.4). Either the tune is not in the catalog, or the transcription is too noisy to match.
+   'chance' is what this tune scores against meaningless stepwise input; raw scores are not comparable between tunes.
+
+wrote: memory_of_home.pitch.csv, memory_of_home.notes.json, memory_of_home.musicxml, memory_of_home.mid, memory_of_home.abc
+ALLDONE

@@ -1,0 +1,31 @@
+
+MELODIA
+recording       key              tempo          form  fconf  notes  uncert  voiced
+------------------------------------------------------------------------------------
+bebop_1         D major          112.3        A/0bar   0.00    606     359     48%
+bebop_2         E dorian         123.0        A/0bar   0.00    390      68     54%
+bebop_4         A mixolydian     123.0        A/0bar   0.00    483     318     40%
+bebop_5         A major          123.0        A/0bar   0.00    863     474     47%
+memory_of_home  A major          103.4   ABBCD/20bar   0.16    457      65     46%
+
+BASIC PITCH
+recording       key              tempo          form  fconf  notes  uncert  voiced
+------------------------------------------------------------------------------------
+bebop_1         A mixolydian     112.3 AABBCDD/15bar   0.21    495     216     52%
+bebop_2         E dorian         123.0   AABCD/12bar   0.24    257     127     58%
+bebop_4         A mixolydian     123.0 AABBCCD/16bar   0.24    610     250     65%
+bebop_5         A major          123.0  AABBCD/16bar   0.34    449     361     53%
+memory_of_home  A major          103.4  AABBCD/16bar   0.11    683     450     77%
+
+MELODY PRESENCE CHECK
+  Melodia:     0 of 5 pass  (all flagged: 75-91% of frames locked to the bass)
+  Basic Pitch: 5 of 5 pass  ("melodic content present")
+
+TUNE IDENTIFICATION (z = standard deviations above chance; confident needs z>=6 AND margin>=2)
+  recording        Melodia            Basic Pitch
+  bebop_1          1.5               7.2   (margin 0.3 - fails margin)
+  bebop_2         -0.4               2.2   (margin 2.2)
+  bebop_4          2.0              -0.1
+  bebop_5          2.1               4.8   (margin 2.1)
+  memory_of_home   2.7               4.7   (margin 4.4)
+  Still no confident match on any recording.

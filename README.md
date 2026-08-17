@@ -322,6 +322,26 @@ that looked good:
   "not assessed" and fails closed. **The threshold remains unvalidated on real
   audio**, and is stated as a heuristic rather than a calibrated test.
 
+### End-to-end on the five real recordings
+
+| recording | Melodia form | Basic Pitch form | presence check |
+|---|---|---|---|
+| bebop_1 | **failed** | AABBCDD / 15 bar | Melodia ✗ → BP ✓ |
+| bebop_2 | **failed** | AABCD / 12 bar | Melodia ✗ → BP ✓ |
+| bebop_4 | **failed** | AABBCCD / 16 bar | Melodia ✗ → BP ✓ |
+| bebop_5 | **failed** | AABBCD / 16 bar | Melodia ✗ → BP ✓ |
+| memory_of_home | ABBCD / 20 bar | AABBCD / 16 bar | Melodia ✗ → BP ✓ |
+
+The melody-presence check flips from 0 of 5 to **5 of 5** — it has never before
+returned a clean verdict on real audio. Form detection returns structure on
+every recording instead of failing on four of five, and every result begins
+`AAB…`, which is the right shape.
+
+It is still not right. 12-16 bars per section with six or seven distinct letters
+is not an old-time tune; AABB with 8-bar sections is. Form is finding something
+periodic and carving it wrongly. Uncertain-note counts stay high, and no
+recording is confidently identified.
+
 ## Validation by identification
 
 Hand-writing ground truth is the thing that makes a regression corpus expensive,

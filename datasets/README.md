@@ -77,7 +77,20 @@ Three difficulty levels per tune:
 | `jam` | fiddle, guitar, banjo, bass, mandolin, room noise, drones, tempo drift |
 | `hard` | two fiddles, banjo forward, heavy droning, sloppy time, more noise |
 
-**Synthetic success is necessary, not sufficient.** It proves the engine is not
-broken and catches regressions cheaply. It cannot tell you whether the system
-works on a phone recording of a real circle, because it shares none of the
-acoustics that make that hard.
+**Synthetic success is necessary, not sufficient — and on some questions it is
+actively misleading.** It proves the engine is not broken and catches
+regressions cheaply. It cannot tell you whether the system works on a phone
+recording of a real circle, because it shares none of the acoustics that make
+that hard.
+
+> **Do not use this corpus to choose a melody backend.** Measured here, pYIN
+> beats Essentia by a wide margin (0.855 against 0.663 pitch accuracy). Measured
+> on real recordings, pYIN finds 0–2% voiced frames and as few as three notes in
+> a three-minute tune, while Essentia finds 46–54%. The corpus mixes the fiddle
+> loudest with clean harmonics, which is precisely the condition a monophonic
+> tracker needs and a jam does not provide. The ranking is not merely optimistic
+> here, it is inverted.
+
+The general rule this implies: use synthetic results as regression protection,
+and require a real-audio check before acting on them as evidence for a design
+decision.

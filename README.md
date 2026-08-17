@@ -299,11 +299,30 @@ key accuracy. pYIN is a *monophonic* tracker, in principle the wrong tool for
 polyphonic audio, included only as an honest baseline. That it wins challenges
 the central technology choice.
 
-The caveat on that last one is real: the synthetic mix places the fiddle loudest
-with clean harmonics, which plausibly flatters a monophonic tracker in a way a
-phone recording of a real circle would not. It is a firm result about the
-synthetic corpus and only a hypothesis about real audio — and those two have
-already disagreed sharply once in this project.
+**That last result is wrong about real audio, and measuring it was the single
+most valuable thing in this project.** Run on the five real recordings, pYIN
+produces essentially nothing:
+
+| backend | synthetic pitch accuracy | real: voiced frames | real: notes found |
+|---|---|---|---|
+| Essentia Melodia | 0.663 | **46–54%** | 390–863 |
+| pYIN | **0.855** | **0–2%** | **3–33** |
+
+Three notes in a three-and-a-half minute recording. pYIN's voicing detector
+never crosses threshold in a dense mix; the synthetic corpus places the fiddle
+loudest with clean harmonics, which is exactly the condition a monophonic
+tracker needs.
+
+So **the synthetic corpus does not merely flatter the pipeline — it inverts the
+ranking on the most consequential design decision in the system.** Anyone using
+it to choose a melody backend would pick the one that yields three notes per
+tune. This is the corpus's most important known limitation, and it generalises:
+treat synthetic results as regression protection, never as evidence for a
+design choice, without a real-audio check.
+
+It also vindicates the spec's original instinct. Predominant-melody extraction
+really is the right family of algorithm for this problem; the failures on real
+audio are elsewhere.
 
 **Confidence AUC sits between 0.50 and 0.69 in every variant.** The product
 claim rests entirely on that number, and nothing in the current design moves it.

@@ -34,6 +34,28 @@ from .domain import TimedNote
 REST = -1
 FORM_GRID = 2  # slots per beat; eighth notes are enough to see structure
 
+#: The whole universe of forms we expect, with how common each is.
+#:
+#: This is the strongest constraint available and it was previously unused. The
+#: search ranged freely over section length, offset and cluster count, so it
+#: happily returned things like AABBCCD with 16 bars per section -- structure
+#: that is periodic but is not a tune. Old-time form is drawn from a very small
+#: set, so enumerate it and score membership rather than discovering it.
+#:
+#: A recording is the form played several times through, possibly starting
+#: mid-tune and usually cut off mid-tune, so matching allows rotation and a
+#: truncated tail.
+KNOWN_FORMS: dict[str, float] = {
+    "AABB": 1.00,    # overwhelmingly the most common
+    "AABBCC": 0.50,  # three-part tunes
+    "AB": 0.45,      # played straight through without repeats
+    "AAB": 0.30,
+    "ABB": 0.30,
+    "ABAB": 0.25,
+    "AABBB": 0.20,
+    "AAABBB": 0.20,
+}
+
 
 @dataclass
 class SectionInstance:
@@ -187,10 +209,13 @@ def analyze_form(
             # actually find repetition; a segmentation where every block is its
             # own cluster explains nothing.
             repetition = 1.0 - (n_labels - 1) / max(1, len(blocks) - 1)
-            # THE domain prior: old-time sections are played twice in a row.
-            # This is what separates a section from a phrase -- a half-length
-            # block clusters just as cleanly but yields runs of four.
-            structure = _repeat_structure_score(labels)
+            # THE domain prior: the form is drawn from a small known universe,
+            # played several times through. This subsumes the older
+            # runs-of-two heuristic and is far sharper -- it rejects
+            # AABBCCD outright rather than merely scoring it a little lower.
+            structure = max(_repeat_structure_score(labels),
+                            form_plausibility(labels))
+            structure *= 0.35 + 0.65 * form_plausibility(labels)
             # Coverage is squared: a hypothesis that leaves a quarter of the
             # recording unexplained is not a quarter worse, it is probably the
             # wrong section length being propped up by having less data to
@@ -391,30 +416,57 @@ def _similarity_matrix(blocks: list[tuple[float, np.ndarray]]) -> np.ndarray:
 def _cluster(
     sim: np.ndarray, threshold: float, max_sections: int
 ) -> tuple[list[str], float | None]:
-    """Cluster blocks, adapting the threshold to this recording's similarity scale.
+    """Cluster blocks, scanning for a threshold that yields a plausible count.
 
-    A fixed absolute threshold assumes similarity values mean the same thing on
-    every recording, and they do not: a clean solo fiddle produces same-section
-    similarities near 1.0, while a phone recording of a loud circle tops out
-    around 0.8 with a mean of 0.4. At a fixed 0.62 the latter shatters into more
-    clusters than there are sections and the hypothesis is discarded -- which is
-    exactly what happened on every real recording tested.
+    A fixed absolute threshold cannot work: similarity values do not mean the
+    same thing on every recording. A clean solo fiddle reaches ~1.0 between
+    repeats of a section, while a phone recording of a loud circle tops out near
+    0.8 with a mean of 0.4.
 
-    So we try the configured threshold first, then a ladder derived from the
-    observed distribution, and take the first clustering that yields a plausible
-    number of sections.
+    An earlier version tried a short hand-picked ladder of thresholds, and that
+    failed in a way that was invisible until instrumented: on real audio its low
+    rungs merged everything into a single cluster and its high rungs shattered
+    the blocks past ``max_sections``, so *every* rung was rejected and form
+    detection returned nothing at all. The viable window sat between two rungs.
+
+    So derive the candidates from the data instead -- quantiles of the observed
+    off-diagonal similarities -- and keep the best-scoring clustering that
+    yields between two and ``max_sections`` labels.
     """
     off_diagonal = sim[~np.eye(len(sim), dtype=bool)]
-    ladder = [threshold]
-    if len(off_diagonal):
-        hi, mean = float(np.max(off_diagonal)), float(np.mean(off_diagonal))
-        ladder += [mean + f * (hi - mean) for f in (0.75, 0.6, 0.5, 0.4, 0.3)]
+    if not len(off_diagonal):
+        return [""] * len(sim), None
+
+    quantiles = np.percentile(off_diagonal, np.linspace(40.0, 99.5, 28))
+    candidates = sorted({round(float(t), 4) for t in (*quantiles, threshold)})
+
     best: tuple[list[str], float] | None = None
-    for candidate in ladder:
+    for candidate in candidates:
         labels, quality = _cluster_at(sim, candidate, max_sections)
-        if quality is not None and (best is None or quality > best[1]):
-            best = (labels, quality)
-    return best if best is not None else ([""] * len(sim), None)
+        if quality is None:
+            continue
+        # Prefer the clustering that separates best, breaking ties toward the
+        # form we actually expect to see.
+        score = quality * (0.5 + 0.5 * form_plausibility(labels))
+        if best is None or score > best[1]:
+            best = (labels, score)
+    if best is None:
+        return [""] * len(sim), None
+    # Recompute the honest quality for the winner; the tie-break above must not
+    # leak into the number the caller scores hypotheses with.
+    _, quality = _cluster_at(sim, _threshold_for(sim, best[0]), max_sections)
+    return best[0], quality if quality is not None else best[1]
+
+
+def _threshold_for(sim: np.ndarray, labels: list[str]) -> float:
+    """The lowest within-cluster similarity implied by a labelling."""
+    within = [
+        sim[i, j]
+        for i in range(len(labels))
+        for j in range(i + 1, len(labels))
+        if labels[i] == labels[j]
+    ]
+    return float(min(within)) if within else 0.0
 
 
 def _cluster_at(
@@ -499,6 +551,27 @@ def _offset_plausibility(offset: float, first_note_beat: float) -> float:
     lead = first_note_beat - offset
     excess = max(0.0, lead) + max(0.0, -lead - _MAX_PICKUP_BEATS)
     return 1.0 / (1.0 + 0.25 * excess)
+
+
+def form_plausibility(labels: list[str]) -> float:
+    """How well a label sequence looks like a known form played several times.
+
+    Allows rotation, because a jam may be joined mid-tune, and a truncated tail,
+    because recordings stop wherever they stop. Returns a small floor rather
+    than zero for unrecognised sequences, so an unusual but real form stays
+    reachable if the acoustic evidence for it is strong.
+    """
+    seq = "".join(labels)
+    if not seq:
+        return 0.0
+    best = 0.05
+    for form, weight in KNOWN_FORMS.items():
+        for rotation in range(len(form)):
+            rotated = form[rotation:] + form[:rotation]
+            repeated = (rotated * (len(seq) // len(rotated) + 2))[: len(seq)]
+            match = sum(1 for a, b in zip(seq, repeated) if a == b) / len(seq)
+            best = max(best, weight * match)
+    return best
 
 
 def _repeat_structure_score(labels: list[str]) -> float:

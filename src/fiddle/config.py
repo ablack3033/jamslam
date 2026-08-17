@@ -150,12 +150,19 @@ class KeyConfig:
 
 @dataclass(frozen=True)
 class FormConfig:
-    # AABB is a strong prior, not a law. Crooked tunes and ABC forms exist.
-    expected_section_bars: tuple[int, ...] = (8, 16, 4, 6, 12)
+    # Eight bars is the overwhelming norm. The others are the crooked and
+    # short-section cases that genuinely occur; anything outside this list is
+    # almost certainly the search carving periodic structure at the wrong scale.
+    expected_section_bars: tuple[int, ...] = (8, 4, 6, 7, 9, 12, 16)
     min_section_bars: int = 4
-    max_section_bars: int = 20
+    # Was 20, which let the search return 15- and 16-bar "sections" on real
+    # recordings. No old-time section is that long; that result was the search
+    # swallowing a section and its repeat into one block.
+    max_section_bars: int = 12
     similarity_threshold: float = 0.62  # below this, two passes are not "the same"
-    max_sections: int = 4  # A, B, C, D
+    # Old-time tunes are one, two or occasionally three parts. Allowing four
+    # let the search escape into forms like AABBCCD that do not exist.
+    max_sections: int = 3
     require_repeats: bool = False
 
 

@@ -325,3 +325,70 @@ def test_abc_spells_accidentals_relative_to_the_key():
     assert _abc_pitch(77, 2) == "=f"
     # In C major F# needs an explicit sharp.
     assert _abc_pitch(78, 0) == "^f"
+
+
+# --------------------------------------------------------------------------
+# form universe
+# --------------------------------------------------------------------------
+
+
+def test_form_plausibility_ranks_the_known_universe():
+    """Old-time form comes from a small set; scoring should reflect that."""
+    from fiddle.form import form_plausibility
+
+    assert form_plausibility(list("AABB")) == pytest.approx(1.0)
+    # A jam plays the tune several times through.
+    assert form_plausibility(list("AABBAABB")) == pytest.approx(1.0)
+    # A recording joined mid-tune is the same form, rotated.
+    assert form_plausibility(list("BBAABB")) == pytest.approx(1.0)
+    # Things that are periodic but are not tunes must score well below.
+    for bogus in ("AABBCCD", "AABBCDD", "ABCABC"):
+        assert form_plausibility(list(bogus)) < 0.7, bogus
+
+
+def test_form_plausibility_keeps_unusual_forms_reachable():
+    """A floor, not a veto: strong acoustic evidence should still win."""
+    from fiddle.form import form_plausibility
+
+    assert form_plausibility(list("ABCDEF")) > 0.0
+
+
+def test_clustering_finds_the_window_between_merge_and_shatter():
+    """Regression for a bug that made form detection fail outright on real audio.
+
+    The threshold was chosen from a short hand-picked ladder. On a real
+    recording its low rungs merged every block into one cluster and its high
+    rungs shattered them past max_sections, so every rung was rejected and the
+    search returned nothing -- the viable window sat *between* two rungs.
+    Thresholds are now scanned from the observed similarity distribution.
+    """
+    import numpy as np
+
+    from fiddle.form import _cluster
+
+    # Two groups whose separation is real but narrow, and nowhere near 0.62.
+    n = 8
+    sim = np.full((n, n), 0.30)
+    for i in range(n):
+        for j in range(n):
+            if (i < 4) == (j < 4):
+                sim[i, j] = 0.44
+        sim[i, i] = 1.0
+
+    labels, quality = _cluster(sim, 0.62, 3)
+    assert quality is not None, "no threshold in the scan produced a clustering"
+    assert len(set(labels)) == 2
+    assert labels[:4] == [labels[0]] * 4
+    assert labels[4:] == [labels[4]] * 4
+
+
+def test_section_search_stays_within_old_time_lengths():
+    from fiddle.config import FormConfig
+
+    cfg = FormConfig()
+    # 15- and 16-bar "sections" were real output before this bound; no old-time
+    # section is that long, they were a section plus its repeat.
+    assert cfg.max_section_bars <= 12
+    # One, two or occasionally three parts. Four let the search invent AABBCCD.
+    assert cfg.max_sections == 3
+    assert 8 in cfg.expected_section_bars

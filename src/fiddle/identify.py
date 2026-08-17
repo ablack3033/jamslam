@@ -48,12 +48,16 @@ class TuneMatch:
     key: str
     score: float  # share of the catalog tune's n-grams present in the recording
     coverage: float  # share of the recording's n-grams belonging to this tune
+    # How many standard deviations above chance this tune's score is, given how
+    # easily it matches meaningless input. This, not `score`, is what ranks.
+    z: float = 0.0
+    chance_score: float = 0.0
     section_scores: dict[str, float] = field(default_factory=dict)
     source: str = ""
     tune: CatalogTune | None = None
 
     def __repr__(self) -> str:
-        return f"TuneMatch({self.title!r}, score={self.score:.3f})"
+        return f"TuneMatch({self.title!r}, z={self.z:.1f}, score={self.score:.3f})"
 
 
 @dataclass
@@ -68,20 +72,27 @@ class Identification:
 
     @property
     def margin(self) -> float:
-        """Gap between the best and second-best match.
+        """Gap in z between the best and second-best match.
 
-        A high score with no margin means the catalog contains several similar
+        A high score with no margin means the catalog holds several similar
         tunes, not that we identified this one -- so margin is reported
         separately rather than folded into the score.
         """
         if len(self.matches) < 2:
-            return 1.0
-        return self.matches[0].score - self.matches[1].score
+            return self.matches[0].z if self.matches else 0.0
+        return self.matches[0].z - self.matches[1].z
 
-    def is_confident(self, min_score: float = 0.30, min_margin: float = 0.08) -> bool:
+    def is_confident(self, min_z: float = 6.0, min_margin: float = 2.0) -> bool:
+        """Confident only when the match is far above what chance would give.
+
+        Thresholds are in units of the null model's standard deviation, not raw
+        score, because raw score is not comparable across tunes: a repetitive,
+        stepwise tune scores far higher on meaningless input than an arpeggiated
+        one does. See :func:`null_baseline`.
+        """
         return bool(
             self.matches
-            and self.matches[0].score >= min_score
+            and self.matches[0].z >= min_z
             and self.margin >= min_margin
         )
 
@@ -129,13 +140,87 @@ def _weighted_share(grams: set, observed: set, weights: dict[tuple, float]) -> f
     return hit / total
 
 
+#: Cache of null baselines, keyed by catalog identity. Computing one costs a few
+#: dozen n-gram set operations, which is cheap, but not free per call.
+_NULL_CACHE: dict[tuple, dict[str, tuple[float, float]]] = {}
+
+
+def _random_diatonic_walk(rng, length: int = 500) -> list[int]:
+    """A meaningless but *plausible* melody: a stepwise walk in a major scale.
+
+    The null model has to look like a bad transcription, not like white noise.
+    Uniformly random pitches score near zero against everything and would prove
+    nothing; a noisy transcription of a real jam is full of small stepwise moves
+    and repeated notes, which is exactly what accidentally matches simple tunes.
+    """
+    scale = (0, 2, 4, 5, 7, 9, 11)
+    root = rng.choice((62, 67, 69))
+    pitch = root
+    out = []
+    for _ in range(length):
+        pitch += rng.choice((-2, -1, 0, 1, 2)) * rng.choice((1, 2))
+        pitch = max(60, min(84, pitch))
+        out.append(
+            min(range(60, 85),
+                key=lambda c: (abs(c - pitch), (c - root) % 12 not in scale))
+        )
+    return out
+
+
+def null_baseline(
+    catalog: list[CatalogTune], trials: int = 40, seed: int = 0
+) -> dict[str, tuple[float, float]]:
+    """Mean and spread of each tune's score against meaningless input.
+
+    This exists because raw match scores are **not comparable between tunes**.
+    Measured over random diatonic walks, one particular catalog tune won 60 out
+    of 60 trials at a mean score of 0.394 -- higher than any real recording had
+    scored. Ranking on raw score therefore reported that tune as the best match
+    for essentially every input, which is a match on nothing.
+
+    Normalising by this baseline turns the score into "how much better than
+    chance", which is the quantity we actually meant all along.
+    """
+    key = tuple(sorted(t.title for t in catalog))
+    if key in _NULL_CACHE:
+        return _NULL_CACHE[key]
+
+    import random
+    import statistics
+
+    weights = _ngram_weights(catalog)
+    tune_grams = {
+        t.title: set().union(*(
+            set(interval_ngrams([n.pitch for n in s.notes]))
+            for s in t.sections.values()
+        )) for t in catalog
+    }
+    samples: dict[str, list[float]] = {t.title: [] for t in catalog}
+    for trial in range(trials):
+        rng = random.Random(seed + trial)
+        observed = set(interval_ngrams(_random_diatonic_walk(rng)))
+        for title, grams in tune_grams.items():
+            samples[title].append(_weighted_share(grams, observed, weights))
+
+    baseline = {
+        title: (
+            statistics.fmean(values),
+            max(statistics.pstdev(values), 1e-3),
+        )
+        for title, values in samples.items()
+    }
+    _NULL_CACHE[key] = baseline
+    return baseline
+
+
 def identify(
     pitches: list[int],
     catalog: list[CatalogTune] | None = None,
     top_k: int = 5,
 ) -> Identification:
-    """Rank catalog tunes by how much of their melodic material appears in ``pitches``."""
+    """Rank catalog tunes by how far above chance their material appears in ``pitches``."""
     catalog = catalog if catalog is not None else builtin_catalog()
+    baseline = null_baseline(catalog)
     observed = interval_ngrams(pitches)
     observed_set = set(observed)
     weights = _ngram_weights(catalog)
@@ -156,14 +241,16 @@ def identify(
             sum(observed[g] for g in hit) / sum(observed.values())
             if observed else 0.0
         )
+        chance, spread = baseline.get(entry.title, (0.0, 1e-3))
         matches.append(
             TuneMatch(
                 title=entry.title, key=entry.key, score=score, coverage=coverage,
+                z=(score - chance) / spread, chance_score=chance,
                 section_scores=section_scores, source=entry.source, tune=entry,
             )
         )
 
-    matches.sort(key=lambda m: (m.score, m.coverage), reverse=True)
+    matches.sort(key=lambda m: (m.z, m.coverage), reverse=True)
     return Identification(
         matches=matches[:top_k], n_notes=len(pitches), catalog_size=len(catalog)
     )
@@ -187,23 +274,31 @@ def format_identification(ident: Identification) -> str:
         f"searched {ident.catalog_size} catalog tunes against "
         f"{ident.n_notes} transcribed notes",
         "",
-        f"{'tune':<30}{'key':<16}{'match':>7}{'cover':>7}   sections",
+        f"{'tune':<30}{'key':<16}{'z':>7}{'match':>7}{'chance':>8}   sections",
     ]
-    lines.append("-" * 76)
+    lines.append("-" * 84)
     for m in ident.matches:
         secs = " ".join(f"{k}={v:.2f}" for k, v in sorted(m.section_scores.items()))
-        lines.append(f"{m.title:<30}{m.key:<16}{m.score:>7.3f}{m.coverage:>7.3f}   {secs}")
+        lines.append(
+            f"{m.title:<30}{m.key:<16}{m.z:>7.1f}{m.score:>7.3f}"
+            f"{m.chance_score:>8.3f}   {secs}"
+        )
     lines.append("")
     if ident.is_confident():
         lines.append(
             f"=> confident match: {ident.best.title} "
-            f"(margin {ident.margin:.3f} over next candidate)"
+            f"({ident.best.z:.1f} sigma above chance, "
+            f"{ident.margin:.1f} clear of the next candidate)"
         )
     elif ident.best:
         lines.append(
             f"=> no confident match (best {ident.best.title} at "
-            f"{ident.best.score:.3f}, margin {ident.margin:.3f}). "
+            f"{ident.best.z:.1f} sigma, margin {ident.margin:.1f}). "
             f"Either the tune is not in the catalog, or the transcription is too "
             f"noisy to match."
         )
+    lines.append(
+        "   'chance' is what this tune scores against meaningless stepwise input; "
+        "raw scores are not comparable between tunes."
+    )
     return "\n".join(lines)

@@ -119,16 +119,22 @@ Uppercase finger = melody note, lowercase = roll filler; T/I/M = thumb/index/mid
 pipeline does not currently produce a usable transcription of any of them.**
 This is the headline result and it supersedes the synthetic numbers below.
 
-| recording | key (inferred) | tempo | form | notes | uncertain |
-|---|---|---|---|---|---|
-| bebop_1 | A mixolydian | 112 | **failed** | 634 | 61% |
-| bebop_2 | A major | 123 | **failed** | 487 | 20% |
-| bebop_4 | A major | 123 | **failed** | 515 | 28% |
-| bebop_5 | A major | 123 | **failed** | 970 | 52% |
-| memory_of_home | A major | 103 | ABB / 20 bars (bogus) | 380 | 19% |
+| recording | key (inferred) | tempo | form | notes | uncertain | identification |
+|---|---|---|---|---|---|---|
+| bebop_1 | D major | 112 | **failed** | 606 | 59% | z = 1.5 |
+| bebop_2 | E dorian | 123 | **failed** | 390 | 17% | z = −0.4 |
+| bebop_4 | A mixolydian | 123 | **failed** | 483 | 66% | z = 2.0 |
+| bebop_5 | A major | 123 | **failed** | 863 | 55% | z = 2.1 |
+| memory_of_home | A major | 103 | ABBCD / 20 bars (bogus) | 457 | 14% | z = 2.7 |
 
 Form detection failed outright on four of five, and returned its own search
-bound on the fifth. Diagnosing this produced two real bug fixes:
+bound on the fifth. The identification column is the sharpest statement of the
+problem: **every recording sits within about two standard deviations of what a
+random diatonic walk scores**, against a matcher that scores a correct melody at
+z = 9–39 and still at z = 12 with one note in seven corrupted. The transcriptions
+carry no more tune-specific melodic information than noise does.
+
+Diagnosing this produced three real bug fixes:
 
 **The melody extractor was tracking the accompaniment.** `min_frequency` was
 130 Hz (~C3), set below the fiddle deliberately so octave errors would stay
@@ -140,9 +146,20 @@ section that is almost entirely a single low note. Raising the floor to 250 Hz
 moves the median extracted pitch from MIDI 57 (an accompaniment drone) to MIDI
 69 (the fiddle's register). That is now the default.
 
-**Identification was matching on nothing.** Before IDF weighting, the matcher
-ranked the same tune first for all five recordings *at an identical score* --
-matching purely on the all-zeros interval pattern that repeated notes produce.
+**Identification was matching on nothing, twice over.** First, without rarity
+weighting the matcher ranked the same tune top for all five recordings at an
+*identical* score, matching purely on the all-zeros interval pattern that
+repeated notes produce. Fixing that was not enough: raw match scores are not
+comparable *between* tunes, because a repetitive, stepwise tune matches
+meaningless input far more readily than an arpeggiated one. Measured directly,
+one catalog tune won **60 of 60** random-walk trials at a mean score of 0.394 --
+higher than any real recording scored. Scores are now normalised against that
+per-tune null baseline and reported as z.
+
+**The MusicXML exporter crashed on the no-form fallback.** That path runs
+whenever form detection fails, which on real audio is the common case -- so the
+most-exercised real-world path had no test, because the synthetic corpus rarely
+takes it.
 
 The honest conclusion: on real audio the bottleneck is **upstream of everything
 clever**. Consensus and form analysis cannot help if the contour does not
@@ -168,24 +185,31 @@ How the matching works, and why:
   n-grams rather than whole-sequence alignment makes it robust to insertions and
   deletions: a spurious note destroys only the few n-grams spanning it.
 - **Rarity weighting.** Without it, melodically empty patterns dominate.
+- **Null-model normalisation.** Each tune's score is measured against random
+  diatonic walks and reported as z. Without this the ranking is dominated by
+  whichever catalog tune is easiest to match by accident.
 - **Matched against the flat note stream, not detected sections.** Form
   detection is the least reliable stage and fails on most real recordings;
   identification that depended on it would fail exactly when most needed.
 
 Calibration of the matcher itself, from the test suite:
 
-| input | best score |
-|---|---|
-| a catalog tune against itself | **1.000** |
-| the same tune transposed | **1.000** |
-| one note in seven corrupted | 0.372 (still a 0.26 margin over the next tune) |
-| random notes | no confident match |
-| a single repeated note | no confident match |
-| **the five real recordings** | **0.15 — no confident match** |
+Scores are reported as **z**: standard deviations above what that particular
+tune scores against meaningless stepwise input. Raw scores are not comparable
+between tunes, so z is what ranks and what the confidence test uses.
 
-So the matcher is not the weak link. A score of 0.15 on a 4-minute recording is
-not ambiguity about *which* tune it is; it is evidence the transcription does
-not contain a recoverable melody.
+| input | z |
+|---|---|
+| a catalog tune against itself | **9 – 39** |
+| the same tune transposed | unchanged |
+| one note in seven corrupted | **12.3**, still confident |
+| random diatonic walks (30 trials) | none confident, no tune dominates |
+| a single repeated note | not confident |
+| **the five real recordings** | **−0.4 to 2.7 — none confident** |
+
+So the matcher is not the weak link. Two sigma on a four-minute recording is not
+ambiguity about *which* tune it is; it is evidence that the transcription
+contains no more tune-specific information than noise.
 
 **Caveat, stated plainly:** this environment has no network access, so the
 builtin catalog is 20 common jam tunes entered by hand, and it may simply not

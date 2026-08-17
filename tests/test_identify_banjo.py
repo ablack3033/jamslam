@@ -108,6 +108,7 @@ def test_a_catalog_tune_identifies_as_itself(title):
     ident = identify(_catalog_pitches(catalog, title), catalog)
     assert ident.best.title == title
     assert ident.best.score == pytest.approx(1.0)
+    assert ident.best.z > 6.0
     assert ident.is_confident()
 
 
@@ -131,8 +132,7 @@ def test_identification_survives_transcription_errors():
     assert ident.best.title == "Old Joe Clark"
     # An n-gram spans five notes, so corrupting one note in seven damages most
     # of them. What must survive is the *separation* from every other tune.
-    assert ident.best.score > 0.3
-    assert ident.margin > 0.15
+    assert ident.best.z > 6.0
     assert ident.is_confident()
 
 
@@ -146,6 +146,40 @@ def test_noise_does_not_produce_a_confident_match():
     assert not ident.is_confident()
 
 
+def test_no_tune_wins_by_default_on_meaningless_input():
+    """The regression test for the bug that made identification untrustworthy.
+
+    Raw match scores are not comparable between tunes: a repetitive, stepwise
+    tune matches a random diatonic walk far more readily than an arpeggiated one
+    does. Before null-model normalisation, one catalog tune won 60 of 60 random
+    trials at a mean score of 0.394 -- *higher* than any real recording scored --
+    so it was reported as the best match for essentially every input.
+
+    Two things must hold: no tune may dominate, and nothing may be confident.
+    """
+    import random
+    from collections import Counter
+
+    from fiddle.identify import _random_diatonic_walk
+
+    catalog = builtin_catalog()
+    winners: Counter = Counter()
+    for trial in range(30):
+        ident = identify(_random_diatonic_walk(random.Random(trial)), catalog, 1)
+        winners[ident.best.title] += 1
+        assert not ident.is_confident(), f"confident on noise: {ident.best}"
+    assert winners.most_common(1)[0][1] <= 12, f"one tune dominates: {winners}"
+
+
+def test_null_baseline_is_deterministic_and_covers_the_catalog():
+    from fiddle.identify import null_baseline
+
+    catalog = builtin_catalog()
+    a = null_baseline(catalog)
+    assert set(a) == {t.title for t in catalog}
+    assert all(spread > 0 for _, spread in a.values())
+
+
 def test_repeated_notes_alone_do_not_identify_anything():
     """A drone-only transcription must not match the most repetitive tune.
 
@@ -155,7 +189,6 @@ def test_repeated_notes_alone_do_not_identify_anything():
     """
     ident = identify([69] * 200, builtin_catalog())
     assert not ident.is_confident()
-    assert ident.best.score < 0.25
 
 
 def test_interval_ngrams_are_transposition_invariant():

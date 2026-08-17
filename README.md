@@ -261,60 +261,84 @@ position rather than at the capo 7 the arithmetic would suggest.
 Measured on the synthetic corpus (5 tunes × 3 difficulty levels, exact ground
 truth). Full numbers in [`reports/`](reports/).
 
-**What works.**
+### Ablation: which design decisions actually pay?
 
-- **Predominant-melody extraction is not the bottleneck.** On clean audio the
-  extracted and segmented pitch sequence matched ground truth *note for note*
-  over the first bars, and the melody stays in the right register through the
-  full band mix. Essentia's `PredominantPitchMelodia` is doing its job.
-- **Beat tracking is excellent on this material.** Measured section boundaries
-  landed 32.00, 32.02, 31.99 beats apart against a true 32 — old-time's steady
-  guitar-and-bass pulse is a gift, and tempo error is under 1%.
+Each column disables one thing. Measured twice, on two code states, with the
+same conclusions — so these are not artifacts of a transient bug.
+
+```
+metric                     full   no-consensus  no-cleaning  no-onset-split    pyin
+pitch_accuracy            0.663      0.645        0.694          0.553        0.855
+onset_accuracy            0.375      0.379        0.448          0.302        0.557
+duration_accuracy         0.344      0.335        0.371          0.412        0.477
+key_accuracy              0.867      0.867        0.933          0.933        1.000
+form_accuracy             0.467      0.467        0.533          0.400        0.467
+confidence_auc            0.603      0.555        0.587          0.686        0.496
+```
+
+Three results cut against the design, and they are the most valuable output of
+this work so far:
+
+**Consensus contributes almost nothing** — 0.663 with it, 0.645 without. It is
+the stated differentiating feature of the project. The likely cause is
+mechanical rather than fundamental: consensus only ever sees what form detection
+hands it, and form is correct less than half the time, so a gated feature sits
+downstream of a coin flip. That is a hypothesis to test by conditioning the
+measurement on form being correct — not an excuse.
+
+**Pitch cleaning is net-harmful.** Disabling octave correction, median
+filtering, vibrato smoothing, the jump gate and gap filling *improves* pitch,
+onset, key and form accuracy simultaneously. Every one of those stages was
+written on plausible reasoning about what ought to help. The per-stage switches
+exist precisely so that reasoning could be checked, and it did not survive.
+The next step is to find which specific stage is harmful rather than deleting
+the ensemble.
+
+**pYIN beats Essentia decisively** — 0.855 against 0.663 on pitch, and perfect
+key accuracy. pYIN is a *monophonic* tracker, in principle the wrong tool for
+polyphonic audio, included only as an honest baseline. That it wins challenges
+the central technology choice.
+
+The caveat on that last one is real: the synthetic mix places the fiddle loudest
+with clean harmonics, which plausibly flatters a monophonic tracker in a way a
+phone recording of a real circle would not. It is a firm result about the
+synthetic corpus and only a hypothesis about real audio — and those two have
+already disagreed sharply once in this project.
+
+**Confidence AUC sits between 0.50 and 0.69 in every variant.** The product
+claim rests entirely on that number, and nothing in the current design moves it.
+
+### What does work
+
+- **Beat tracking is excellent on this material.** Section boundaries land
+  within 0.02 beats of a true 32, and tempo error is under 1%. Old-time's steady
+  guitar-and-bass pulse is a gift.
 - **Key inference works, including modal tunes.** Mixolydian is detected as
   mixolydian and given its parent major's key signature.
-- **Octave errors are essentially absent** (rate < 0.02) despite the synthetic
+- **Octave errors are essentially absent** (rate ~0.01) despite the synthetic
   banjo deliberately doubling the melody an octave down.
 
-**What does not work yet.**
+### What does not
 
-- **Form detection is the bottleneck**, and it gates everything downstream. When
-  the section length or offset is wrong, note-level metrics collapse even though
-  the underlying melody was extracted correctly — you can see this directly in
-  runs with 0.87 pitch accuracy but 0.15 onset accuracy, which is the signature
-  of a correct melody shifted by a beat.
-- **Confidence is not yet calibrated.** AUC hovers near 0.6 where it needs to be
-  0.8+, and the uncertain-note flags currently have low precision. The product
-  claim ("correct 2–5 flagged notes") depends entirely on this number, so it is
-  the thing to fix after form.
+- **Form detection is the bottleneck**, at 0.467 on synthetic audio and total
+  failure on real audio. It gates consensus, so it caps the project's central
+  idea before that idea gets a chance.
+- **Confidence is not calibrated**, and the correction workflow depends on it.
 
-**Verdict on the central hypothesis.** Not established, and the real recordings
-make that verdict firmer rather than softer: the repetition-and-consensus payoff
-cannot even be attempted while the extracted contour does not contain the
-melody. The evidence supports the *first half* of it — constrained range and simple rhythms do make
-extraction and beat tracking tractable — but the payoff from repetition and
-consensus cannot be claimed until form detection is reliable, because consensus
-only ever sees what form gives it. The apparatus to settle it now exists.
-
-Three structural findings worth carrying forward, each of which cost a
-measurement to learn:
+**Verdict on the central hypothesis.** Not established. On synthetic audio the
+domain-specific machinery is measurably not carrying its weight; on real audio
+it has not been reached at all, because the contour going into it does not
+contain the melody. Three structural findings, each of which cost a measurement:
 
 1. **Similarity-based form analysis is completely flat in offset.** Shifting
    every block by the same amount leaves all pairwise similarities unchanged, so
-   clustering can find the *period* of the repetition but never its *phase*.
-   Phase needs external evidence; we currently use "the recording starts at the
-   top of the tune", which is weaker than it should be.
-2. **A half-section clusters exactly as cleanly as a whole one**, because half a
-   section repeats too. No similarity-based objective can separate them. What
-   does separate them is the domain prior that sections come in runs of exactly
-   two: a half-length hypothesis yields runs of four, a double-length hypothesis
-   runs of one. Encoding that fixed the single largest error class.
-3. **Exact slot matching is too brittle for human performances.** Two passes of
-   the same section routinely land a grid slot apart; requiring exact alignment
-   made identical sections look ~30% similar and collapsed form detection on
-   noisy audio. A ±1 slot tolerance roughly doubled the separation between
-   same-section and different-section pairs.
-
----
+   clustering finds the *period* of repetition but never its *phase*.
+2. **A half-section clusters exactly as cleanly as a whole one.** No
+   similarity-based objective separates them; the domain prior that sections
+   repeat in runs of exactly two does.
+3. **Exact slot matching is too brittle for human performances.** A ±1 slot
+   tolerance roughly doubled the separation between same-section and
+   different-section pairs.
 
 ## Where this deviates from the original spec
 

@@ -1,0 +1,14 @@
+metric                              full    no-consensus     no-cleaning  no-onset-split            pyin
+--------------------------------------------------------------------------------------------------------
+pitch_accuracy                     0.663           0.645           0.694           0.553           0.855
+pitch_class_accuracy               0.674           0.659           0.706           0.573           0.864
+onset_accuracy                     0.375           0.379           0.448           0.302           0.557
+duration_accuracy                  0.344           0.335           0.371           0.412           0.477
+sequence_similarity                0.443           0.441           0.448           0.529           0.538
+octave_error_rate                  0.011           0.014           0.012           0.020           0.009
+key_accuracy                       0.867           0.867           0.933           0.933           1.000
+form_accuracy                      0.467           0.467           0.533           0.400           0.467
+confidence_auc                     0.603           0.555           0.587           0.686           0.496
+
+wrote reports/ablation.json
+EXIT=0

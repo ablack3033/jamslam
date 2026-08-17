@@ -1,0 +1,14 @@
+##### selector loudest
+-----------------------------------------------------------------------------------------
+MEAN                            0.90   0.91   0.67   0.35   0.50 0.93  0.67     0.7
+
+confidence: AUC 0.634  flag precision 0.14  flag recall 0.51  (23.0 flagged / 2.9 wrong per tune)
+octave-error rate: 0.011
+##### selector voice
+-----------------------------------------------------------------------------------------
+MEAN                            0.84   0.89   0.70   0.34   0.50 0.93  0.67     0.7
+
+confidence: AUC 0.605  flag precision 0.19  flag recall 0.53  (31.8 flagged / 8.3 wrong per tune)
+octave-error rate: 0.043
+
+[exited with code 0]

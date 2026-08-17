@@ -569,3 +569,49 @@ def test_unknown_backend_still_raises():
 
     with _pytest.raises(ValueError):
         get_extractor("no_such_backend")
+
+
+# --------------------------------------------------------------------------
+# corpus: the condition that makes melody selection a real question
+# --------------------------------------------------------------------------
+
+
+def test_corpus_has_a_tier_where_the_fiddle_is_not_the_loudest():
+    """Regression for a corpus that could not test what it was being asked.
+
+    Every difficulty put the fiddle at 0.9-1.0 against accompaniment of at most
+    0.46, so "keep the loudest note sounding" was close to correct by
+    construction. The corpus duly scored that rule above every alternative
+    while being structurally incapable of testing one, which nearly shipped a
+    false conclusion about melody selection.
+    """
+    from fiddle.corpus.synth import DIFFICULTIES
+
+    buried = DIFFICULTIES["buried"]
+    accompaniment = max(buried.guitar_gain, buried.banjo_gain,
+                        buried.bass_gain, buried.mandolin_gain)
+    assert buried.fiddle_gain < accompaniment, (
+        "the 'buried' tier exists precisely so the fiddle is not the loudest "
+        "source; without that, melody-selection strategies cannot be compared"
+    )
+
+
+def test_voice_selector_returns_a_single_connected_line():
+    """Whatever its accuracy, the path selector must not emit overlapping notes.
+
+    It measures worse than the per-instant rule and is not the default, but it
+    is kept as an option, and the one property it must hold is the one it
+    exists for: a single voice, not several.
+    """
+    from fiddle.melody.voice import select_voice
+
+    # Two simultaneous "instruments": a moving line and a loud sustained drone.
+    events = []
+    for i in range(8):
+        events.append((i * 0.25, i * 0.25 + 0.25, 72 + (i % 4), 0.6))  # melody
+        events.append((i * 0.25, i * 0.25 + 0.25, 64, 0.9))            # drone
+    path = select_voice(events, melody_floor=60)
+
+    assert path, "selector returned nothing"
+    for (_, end, _, _), (next_start, *_rest) in zip(path, path[1:]):
+        assert next_start >= end - 1e-6, "path contains overlapping notes"

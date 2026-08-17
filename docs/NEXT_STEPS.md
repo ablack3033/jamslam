@@ -174,6 +174,61 @@ the strongest argument for doing it first.
 
 ---
 
+## Tried and rejected: following one voice
+
+Lowering the threshold left the extracted line spread across *more* pitch
+classes than a real tune contains — 41% of notes in the top two against 53% for
+a real tune — which is a line switching between instruments rather than a
+melody. The obvious fix is to stop choosing per instant and select a whole path:
+`fiddle/melody/voice.py` scores paths through the note events (reward for loud,
+long notes; costs for movement, octave jumps, silence and overlap) and finds the
+global optimum by dynamic programming.
+
+It works as designed. It produces one connected line, and on real audio it
+improves both proxies: concentration 88% → 79% and bass-locking 47% → 38% on
+`memory_of_home`. **Against ground truth it is clearly worse, and it is not
+shipped.**
+
+| buried tier | pitch | pclass | onset | key | form | octave err | wrong/tune |
+|---|---|---|---|---|---|---|---|
+| loudest per instant | **0.86** | **0.93** | **0.85** | **1.00** | **1.00** | **0.070** | **10.2** |
+| voice path | 0.67 | 0.77 | 0.65 | 0.60 | 0.80 | 0.107 | 17.6 |
+
+Four weight settings were tried, including much stronger octave penalties and a
+register-band term. All were worse. One earlier version was worse than useless:
+it charged 0.10 per semitone of movement while an entire note was worth 0.09, so
+the optimal path was mathematically forbidden from moving and locked onto a
+drone — *worse* concentration than the selector it replaced, 88% → 93%.
+
+**Why the naive rule is hard to beat.** Not because per-instant choice is good,
+but because of the register floor above it. Above D4 the fiddle usually *is* the
+loudest thing even when the guitar dominates the full mix, so "loudest above the
+floor" is far better posed than it sounds. A path-based selector trades that
+reliable local evidence for continuity it has no way to judge — it knows a
+melody should be connected, but not which connected line is the fiddle. That is
+precisely the knowledge a catalog would supply, which is another argument for
+doing identification before any more selector work.
+
+### The corpus could not previously test this at all
+
+Worth recording separately, because it nearly produced a false conclusion. Every
+difficulty tier put the fiddle at gain 0.9–1.0 against accompaniment of at most
+0.46, so **"keep the loudest note" was close to correct by construction** and the
+corpus scored it above every alternative while being structurally incapable of
+testing one.
+
+A `buried` tier now exists: fiddle 0.55 against guitar 0.85 and banjo 0.80,
+which is the condition the real recordings are actually in. The verdict above is
+from that tier, so it means something. Any future melody-selection work should
+be measured there.
+
+It also exposes the next real problem. On `buried`, *both* selectors identify
+notes reasonably (pitch 0.86, pitch-class 0.93, onset 0.85) and both produce
+duration accuracy of **0.03**. Note identity survives a buried fiddle; note
+*length* does not, which matches what the real recordings look like.
+
+---
+
 ## Done: the threshold was lowered and re-measured
 
 Basic Pitch's note-creation thresholds are now config (`melody.basicpitch_*`)

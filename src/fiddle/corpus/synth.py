@@ -174,6 +174,33 @@ DIFFICULTIES: dict[str, Difficulty] = {
         drone_probability=0.42,
         vibrato_cents=26.0,
     ),
+    # The condition the real recordings are actually in, and the one every
+    # other tier here quietly excludes: the fiddle is NOT the loudest thing in
+    # the mix. A phone on a table with the guitar and banjo nearer to it than
+    # the fiddler.
+    #
+    # This tier exists because its absence invalidated a measurement. Every
+    # difficulty above puts the fiddle at 0.9-1.0 against accompaniment of at
+    # most 0.46, so "keep the loudest note sounding" is close to the correct
+    # answer by construction, and the corpus scored it above every alternative
+    # while being structurally unable to test one. A melody-selection strategy
+    # can only be compared where selection is actually hard.
+    "buried": Difficulty(
+        name="buried",
+        fiddle_gain=0.55,
+        guitar_gain=0.85,
+        banjo_gain=0.80,
+        bass_gain=0.62,
+        mandolin_gain=0.45,
+        second_fiddle_gain=0.0,
+        noise_db=-28.0,
+        reverb_wet=0.26,
+        timing_jitter_sec=0.028,
+        intonation_cents=20.0,
+        tempo_drift_pct=2.4,
+        drone_probability=0.45,
+        vibrato_cents=24.0,
+    ),
 }
 
 _CHORD_PC = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}

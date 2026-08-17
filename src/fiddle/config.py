@@ -82,6 +82,35 @@ class MelodyConfig:
     basicpitch_onset_threshold: float = 0.3
     basicpitch_frame_threshold: float = 0.15
 
+    # How the melody is chosen from Basic Pitch's overlapping note events.
+    #
+    #   "loudest"  keep the loudest note sounding at each instant.
+    #   "voice"    find the single best path through the notes (fiddle.melody.voice).
+    #
+    # "loudest" makes every decision independently, so on real audio the line
+    # does jump between instruments -- that is real and visible. "voice" fixes
+    # exactly that, produces a genuinely connected line, and measures WORSE:
+    #
+    #   buried tier    pitch  pclass  onset   key   form  octave  wrong/tune
+    #     loudest       0.86    0.93   0.85  1.00   1.00   0.070      10.2
+    #     voice         0.67    0.77   0.65  0.60   0.80   0.107      17.6
+    #
+    # Confirmed on the ordinary tiers too (pitch 0.90 vs 0.84). Four weight
+    # settings were tried, including much stronger octave and register-band
+    # penalties; all were worse.
+    #
+    # The reason "loudest" is hard to beat is the register floor above it.
+    # Above D4 the fiddle usually IS the loudest thing even when the guitar
+    # dominates the full mix, so the rule is better posed than it sounds, and
+    # a path-based selector trades that reliable local evidence for continuity
+    # it cannot yet judge.
+    basicpitch_selector: str = "loudest"
+    # Exposed so the path-selection weights can be swept against ground truth
+    # rather than tuned on proxies. See fiddle.melody.voice.VoiceWeights.
+    voice_step: float = 0.02
+    voice_octave: float = 0.40
+    voice_register: float = 0.0
+
 
 @dataclass(frozen=True)
 class CleanConfig:

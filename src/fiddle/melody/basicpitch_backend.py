@@ -84,6 +84,28 @@ class BasicPitchMelodyExtractor:
         midi = np.full(n_frames, np.nan)
         conf = np.zeros(n_frames)
 
+        if self.config.basicpitch_selector == "voice":
+            from .voice import VoiceWeights, select_voice
+
+            path = select_voice(note_events, self.melody_floor, VoiceWeights(
+                step=self.config.voice_step,
+                octave=self.config.voice_octave,
+                register=self.config.voice_register,
+            ))
+            for start, end, pitch, amplitude in path:
+                i0 = max(0, int(round(start / hop_seconds)))
+                i1 = min(n_frames, int(round(end / hop_seconds)))
+                if i1 <= i0:
+                    continue
+                midi[i0:i1] = pitch
+                conf[i0:i1] = np.clip(amplitude, 0.0, 1.0)
+            return PitchContour(
+                times=times, midi=midi, confidence=conf,
+                hop_seconds=hop_seconds, backend=self.name,
+                history=["basic_pitch:predict",
+                         f"melody_selection:voice_path_above_{self.melody_floor}"],
+            )
+
         # Melody selection. Measured against alternatives on a real recording
         # (see docs/RESEARCH.md): discarding everything below the fiddle's
         # melodic floor and then taking the LOUDEST note sounding at each

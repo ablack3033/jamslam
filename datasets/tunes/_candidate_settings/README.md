@@ -34,16 +34,26 @@ deviations above what that tune scores on meaningless input:
 | bebop_5 | Old Joe Clark | 1.8 | 2 |
 | memory_of_home | Old Joe Clark | 2.7 | **1** |
 
-No single recording clears the confidence bar (z ≥ 6). But a named tune lands in
-the top two of twenty for **every** recording, which a permutation test puts at
-**p = 0.0004**. So the transcriptions do carry real melodic information — just
-not enough to identify any one recording on its own.
+No single recording clears the confidence bar (z ≥ 6).
 
-Two things this leaves open:
+An earlier version of this file claimed the ranking pattern was significant at
+p = 0.0004. **That is retracted.** It assumed a named tune was the correct
+answer for every recording, and `memory_of_home` is probably *not* Old Joe
+Clark — so that row is a false positive and the premise fails.
 
-1. **The mapping is unconfirmed.** Three tune names were given for five
-   recordings, so at least two recordings share a tune, and which is which is
-   inferred from the table above rather than known.
-2. **Cluck Old Hen ranks nowhere**, on any recording. Either none of these five
-   is that tune, or our setting for it is poor, or it is one of the recordings
-   we are ranking wrongly.
+Measured chance rates over random input: the best of these three tunes lands in
+the top two 31% of the time by luck alone; Old Joe Clark reaches rank 1 on 5.3%
+of random inputs and Sandy River Belle on 3.7%. That leaves one plausible hit
+(`bebop_1`, p ≈ 0.04) and one likely miss (`memory_of_home`, p ≈ 0.05) at
+comparable significance — **no net evidence either way.**
+
+What is still open:
+
+1. **The mapping is unconfirmed.** Three names for five recordings means at
+   least two share a tune. `bebop_1` may be Sandy River Belle; `memory_of_home`
+   is probably not Old Joe Clark. The rest is unknown.
+2. **Cluck Old Hen ranks nowhere** on any recording, and it is also the *least*
+   likely of the three to match by chance (6% top-2 rate against 10% uniform),
+   so its absence is weak evidence rather than none.
+3. **Verified ground truth for one recording** would settle far more than
+   further statistics can.

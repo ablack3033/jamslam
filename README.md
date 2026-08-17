@@ -4,7 +4,8 @@ Infer the **canonical fiddle melody** from a recording of an old-time jam, and
 produce clean sheet music containing only that melody.
 
 **Status: Phase 1 (research CLI) is built and measured. It works on synthetic
-audio and does NOT yet work on real jam recordings.** There is no API and no
+audio, does not yet work on real jam recordings, and the synthetic corpus has
+been shown to be an unreliable guide to real-audio behaviour.** There is no API and no
 frontend, deliberately — see [Findings on real recordings](#findings-on-real-recordings),
 which is the evidence that should decide what to do next.
 
@@ -132,16 +133,45 @@ bound on the fifth. No single recording clears the identification confidence bar
 (z ≥ 6), against a matcher that scores a correct melody at z = 9–39 and still at
 z = 12 with one note in seven corrupted.
 
-**But the transcriptions are not noise.** Three tunes were later named as being
-among these recordings — Old Joe Clark, Cluck Old Hen and Sandy River Belle. One
-of those three ranks **first or second out of twenty** for *every* recording,
-which a permutation test puts at **p = 0.0004**.
+### Do the transcriptions carry any real signal? Currently undecidable.
 
-So the honest reading is narrower than "it does not work": the transcriptions
-carry real melodic information, enough to rank the right tune near the top of a
-twenty-tune catalog, but not enough to identify any one recording on its own.
-That is a much better starting position than chance-level output, and it means
-the failures are ones of degree rather than of kind.
+Three tunes were later named as present among these recordings — Old Joe Clark,
+Cluck Old Hen and Sandy River Belle — and one of the three ranks first or second
+out of twenty for every recording. A permutation test put that at p = 0.0004,
+and **that number was reported here and is now retracted.**
+
+It assumed a named tune was the *correct* answer for every recording. It is not:
+`memory_of_home` is probably not Old Joe Clark, so the top-ranked match on that
+recording is a false positive rather than a hit, and the test's premise fails.
+
+Measuring the chance rates directly, on 200–300 random diatonic walks:
+
+| | rank #1 on noise | rank ≤2 on noise |
+|---|---|---|
+| uniform expectation | 5.0% | 10.0% |
+| Old Joe Clark | 5.3% | 15.0% |
+| Sandy River Belle | 3.7% | 11.0% |
+| Cluck Old Hen | — | 6.0% |
+| best of the three | — | **31.0%** |
+
+So the observed pattern breaks down into one plausible hit and one likely miss,
+at comparable individual significance:
+
+- `bebop_1` → Sandy River Belle at rank 1, chance rate **3.7%**. Tentatively
+  confirmed, and suggestive on its own — but a single p ≈ 0.04 observation is
+  not evidence.
+- `memory_of_home` → Old Joe Clark at rank 1, chance rate **5.3%**. Believed
+  wrong, which is exactly what a chance hit looks like.
+
+One likely-true and one likely-false at the same significance is **no net
+evidence either way**. The honest position is that this is undecidable on
+current data, and settling it needs verified ground truth for even one
+recording, not more statistics.
+
+Worth noting what did survive: the permutation machinery itself was sound — its
+assumed null (28.4%) matched the measured one (31.0%). The statistic was right;
+the assumption fed into it was wrong. That is the more dangerous failure mode,
+and it is why the chance rates above are now measured rather than assumed.
 
 Diagnosing this produced three real bug fixes:
 

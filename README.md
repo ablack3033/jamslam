@@ -204,6 +204,45 @@ The honest conclusion: on real audio the bottleneck is **upstream of everything
 clever**. Consensus and form analysis cannot help if the contour does not
 contain the melody. Fix extraction on real recordings first.
 
+## Best known approach: Basic Pitch with a register floor
+
+Full write-up in [`docs/RESEARCH.md`](docs/RESEARCH.md). Measured on `bebop_1`,
+5m36s of real jam audio. `locked` is the share of frames holding one fixed
+interval to the bass (lower is better); `REP` is excess self-similarity at the
+tune's period (higher is better).
+
+| approach | locked ↓ | REP ↑ |
+|---|---|---|
+| Melodia (default) | 63.5% | 0.287 |
+| Melodia + sustain mask | 53.0% | 0.248 |
+| frame-level Viterbi | 8.7% | 0.041 |
+| contour-level DP | 24.4% | 0.173 |
+| **Basic Pitch, floor D4, loudest voice** | **26.3%** | **0.295** |
+
+Basic Pitch is the only approach that improves bass independence **without**
+sacrificing repetition. Everything else traded one against the other, which is
+why none of them counted as an improvement.
+
+The reason is structural. Melodia computes a salience function and then commits
+to a line internally, on generic criteria. Basic Pitch emits **discrete note
+events for every voice** and leaves the selection to us — and selecting among
+notes is far better posed than selecting among salience peaks, because notes
+carry register, duration, amplitude and overlap. The rule that measured best is
+deliberately blunt: **discard everything below D4, then take the loudest note
+sounding at each instant.** Taking the *highest* note instead — the obvious
+rule — measured worse on both, because it chases upper partials.
+
+It cannot share the main environment (it pins `numpy<2` and pulls TensorFlow),
+so it runs from a separate venv. Its model ships inside the wheel, so inference
+needs no network — which also makes it the only candidate here viable for the
+fully client-side deployment discussed above.
+
+```bash
+python -m venv .venv-basicpitch
+.venv-basicpitch/bin/pip install basic-pitch -e .
+.venv-basicpitch/bin/fiddle-transcribe recording.m4a --melody-backend basicpitch
+```
+
 ## Melody selection is the real problem on real audio
 
 Melodia's pitch *tracking* is good. Its melody *selection* is what fails on a

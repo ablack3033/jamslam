@@ -16,6 +16,9 @@ conflicts with the main environment. Install it into a separate venv:
 
 and run the CLI with `--melody-backend basicpitch` from that venv. The pipeline
 never imports this module unless the backend is explicitly requested.
+
+Its model ships inside the wheel, so inference needs no network -- which also
+makes it the only candidate here viable for a fully client-side deployment.
 """
 
 from __future__ import annotations
@@ -29,8 +32,16 @@ from ..domain import Audio, PitchContour
 class BasicPitchMelodyExtractor:
     name = "basicpitch"
 
-    def __init__(self, config: MelodyConfig | None = None) -> None:
+    #: Notes below this are accompaniment, not fiddle melody. D4. Measured:
+    #: raising the floor from nothing to D4 cut bass-tracking from 27% to 26%
+    #: while lifting repetition from 0.229 to 0.295 on a real recording.
+    DEFAULT_MELODY_FLOOR = 64
+
+    def __init__(self, config: MelodyConfig | None = None,
+                 melody_floor: int | None = None) -> None:
         self.config = config or MelodyConfig()
+        self.melody_floor = (melody_floor if melody_floor is not None
+                             else self.DEFAULT_MELODY_FLOOR)
 
     def extract(self, audio: Audio) -> PitchContour:
         try:
@@ -69,20 +80,28 @@ class BasicPitchMelodyExtractor:
         midi = np.full(n_frames, np.nan)
         conf = np.zeros(n_frames)
 
+        # Melody selection. Measured against alternatives on a real recording
+        # (see docs/RESEARCH.md): discarding everything below the fiddle's
+        # melodic floor and then taking the LOUDEST note sounding at each
+        # instant halves the rate at which the result tracks the bass, while
+        # slightly improving repetition at the tune's period. Taking the
+        # highest note instead -- the obvious rule, and what this did first --
+        # measured worse on both, because it chases upper partials.
+        amplitude_grid = np.zeros(n_frames)
         # note_events: (start_sec, end_sec, pitch_midi, amplitude, bends)
         for ev in note_events:
             start, end, pitch, amplitude = ev[0], ev[1], int(ev[2]), float(ev[3])
+            if pitch < self.melody_floor:
+                continue  # accompaniment register; never the fiddle's melody
             i0 = max(0, int(round(start / hop_seconds)))
             i1 = min(n_frames, int(round(end / hop_seconds)))
             if i1 <= i0:
                 continue
             span = slice(i0, i1)
-            # Melody-selection rule: prefer the higher pitch, break ties by
-            # amplitude. Stated as one line so it is easy to change and measure.
-            existing = midi[span]
-            better = np.isnan(existing) | (pitch > existing)
+            better = np.isnan(midi[span]) | (amplitude > amplitude_grid[span])
             idx = np.arange(i0, i1)[better]
             midi[idx] = pitch
+            amplitude_grid[idx] = amplitude
             conf[idx] = np.clip(amplitude, 0.0, 1.0)
 
         return PitchContour(
@@ -91,5 +110,6 @@ class BasicPitchMelodyExtractor:
             confidence=conf,
             hop_seconds=hop_seconds,
             backend=self.name,
-            history=["basic_pitch:predict", "melody_selection:highest_pitch"],
+            history=["basic_pitch:predict",
+                     f"melody_selection:loudest_above_{self.melody_floor}"],
         )

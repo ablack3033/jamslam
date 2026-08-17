@@ -267,17 +267,46 @@ exactly as much as two passes of the A part do. The extracted line carries the
 tune's periodicity but not enough detail to separate its sections &mdash; a
 melody-extraction problem that no form prior can fix.</p>
 
+<h2>Where the melody is actually lost</h2>
+<p>Basic Pitch emits per-frame activations and only then thresholds them into
+discrete notes. Measuring pitch-class entropy at each stage localises the
+failure precisely:</p>
+<div class="scroll">
+<table>
+  <tr><th>stage</th><th>pc-entropy</th><th>top-2 pitch classes</th>
+      <th>energy kept</th></tr>
+  <tr><td>raw posteriorgram</td><td>3.55 bits</td><td>24.7%</td><td>100%</td></tr>
+  <tr><td>thresholded at 0.3</td><td>1.83</td><td>83.4%</td><td>9.8%</td></tr>
+  <tr><td>thresholded at 0.5 (near default)</td><td>1.58</td><td>86.7%</td>
+      <td><strong>2.9%</strong></td></tr>
+  <tr><td>after melody selection</td><td>1.55</td><td>90%</td><td>&mdash;</td></tr>
+  <tr><td><em>real old-time tunes, for scale</em></td><td><em>2.40</em></td>
+      <td><em>53%</em></td><td>&mdash;</td></tr>
+</table>
+</div>
+<p><strong>Thresholding discards 97% of the energy</strong>, and what survives is
+the loudest, most sustained content &mdash; guitar and banjo on the tonic and the
+fifth. Melody selection adds only four further points of concentration, so it is
+not the culprit. The fiddle is in the recording; it sits below the confidence
+threshold.</p>
+
 <h2>What would move this next</h2>
 <ol>
+  <li><strong>Identify the tune against a catalog, then adapt it.</strong> The
+  fiddle is present but weak &mdash; only 12.2% of voiced frames peak on
+  anything other than the two dominant pitch classes &mdash; so no frame-by-frame
+  rule will find it. Matching a known melody against the un-thresholded
+  posteriorgram integrates that weak evidence across a whole tune. Once the tune
+  is known, what remains is small: find where this performance departs from the
+  known setting.</li>
   <li><strong>Ground truth.</strong> Eight bars of one recording transcribed by
   ear would convert every open question here into a measurement. Every number on
-  this page is a proxy, and proxies are gameable.</li>
+  this page is a proxy, and proxies are gameable. Successful identification
+  would produce this automatically.</li>
   <li><strong>Source separation.</strong> Removing the bass and guitar stems
   before extraction attacks the problem at its root. Untested &mdash; the
   pretrained weights were unreachable from the build environment, so this is
   unproven rather than disproven.</li>
-  <li><strong>A melody-selection prior</strong> keyed to register and to the
-  tune's own key, rather than picking the loudest note in range.</li>
 </ol>
 
 <footer>

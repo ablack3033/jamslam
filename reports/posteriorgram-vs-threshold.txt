@@ -1,0 +1,11 @@
+memory_of_home: posteriorgram (22692, 88), 2691 thresholded events
+  raw posteriorgram (all energy)         entropy 3.55 bits | top-2 pc 24.7%
+  posteriorgram, melodic register        entropy 3.54 bits | top-2 pc 25.1%
+  thresholded at 0.3                     entropy 1.83 bits | top-2 pc 83.4%
+  thresholded at 0.5                     entropy 1.58 bits | top-2 pc 86.7%
+  thresholded at 0.7                     entropy 1.27 bits | top-2 pc 87.7%
+  energy retained at threshold 0.3: 9.8%
+  energy retained at threshold 0.5: 2.9%
+  frames whose peak is NOT a dominant pitch class: 12.2% (17847 voiced frames)
+
+[exited with code 0]

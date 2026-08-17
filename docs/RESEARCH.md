@@ -257,6 +257,45 @@ Three constraints the repertoire actually has, none of which the search used:
 
 ---
 
+## Where the melody is actually lost: thresholding
+
+Measured on `memory_of_home`, at each stage of Basic Pitch's output. Pitch-class
+entropy, and the share of energy in the two most common pitch classes:
+
+| stage | pc-entropy | top-2 pitch classes | energy retained |
+|---|---|---|---|
+| raw posteriorgram | **3.55 bits** | **24.7%** | 100% |
+| thresholded at 0.3 | 1.83 | 83.4% | 9.8% |
+| thresholded at 0.5 (near default) | 1.58 | 86.7% | **2.9%** |
+| after melody selection | 1.55 | 90% | — |
+| *real old-time tunes, for scale* | *2.40* | *53%* | — |
+
+**Thresholding discards 97% of the energy**, and what survives is the loudest,
+most sustained content — guitar and banjo on the tonic and the fifth. The
+collapse everything downstream inherits happens there, not in melody selection:
+selection adds only 4 further points of concentration.
+
+Two consequences, one negative and one positive:
+
+* **Reranking detected notes cannot fix this.** The correct notes are not in the
+  candidate pool. Measured: applying a stepwise melodic prior to the detected
+  events made concentration *worse*, 90% → 91%. Any plan that reranks Basic
+  Pitch's note events — including a prior learned from a corpus of real tunes —
+  is defeated before it starts.
+* **The un-thresholded posteriorgram is not collapsed** and remains a viable
+  surface to match against.
+
+The caveat attached to the good news: taking the per-frame argmax over the
+melodic register, only **12.2%** of voiced frames peak on something other than
+the two dominant pitch classes. The fiddle is present but weak, and rarely wins
+any individual frame. No frame-by-frame rule will find it; only a method that
+integrates evidence across a whole tune can.
+
+That is the argument for identifying the tune against a catalog rather than
+transcribing it note by note. See [NEXT_STEPS.md](NEXT_STEPS.md).
+
+---
+
 ## The real blocker
 
 **No ground truth.** Every measure above is a proxy, and proxies are gameable —

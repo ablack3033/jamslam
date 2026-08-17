@@ -1,0 +1,7 @@
+memory_of_home: 2691 note events detected
+  all detected                        2691 events | 36 distinct pitches | pc-entropy 1.73 bits | top-2 pc 86%
+  melodic register (>= 64)            1352 events | 15 distinct pitches | pc-entropy 1.70 bits | top-2 pc 85%
+  selector keeps (loudest)            1012 events | 12 distinct pitches | pc-entropy 1.55 bits | top-2 pc 90%
+  stepwise prior would keep            914 events |  9 distinct pitches | pc-entropy 1.50 bits | top-2 pc 91%
+
+[exited with code 0]

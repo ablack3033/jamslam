@@ -173,10 +173,87 @@ identified**, so nothing here is confirmation of a tune name.
 The section lengths are implausible. 12 to 16 bars per section, with forms
 running to six or seven distinct letters, is not what an old-time tune looks
 like — AABB with 8-bar sections is. So form is finding *something* periodic and
-carving it wrongly, rather than finding the tune's actual structure.
+carving it wrongly, rather than finding the tune's actual structure. **The next
+section identifies what that something was**, and it is not a near miss.
 
 Uncertain-note counts remain high (216-450 of 257-683 notes). At those rates the
 promised experience — correct two to five flagged notes — is not close.
+
+---
+
+## Form: the phase-rotation artifact
+
+Form detection used to return a section length and an `AAB…` label sequence for
+every recording. Those results were not weak versions of the right answer; they
+were an artifact, and naming it is the main form finding here.
+
+Measured on `bebop_1`, mean block similarity as a function of block lag
+(full table in [`reports/block-similarity-by-lag.txt`](../reports/block-similarity-by-lag.txt)):
+
+| block length | lag 1 | lag 2 | lag 3 | lag 4 | spread |
+|---|---|---|---|---|---|
+| 16 beats | 0.525 | 0.492 | 0.523 | 0.524 | **0.04** |
+| 32 beats | 0.504 | 0.537 | 0.497 | 0.504 | **0.05** |
+| 36 beats | 0.202 | 0.426 | 0.223 | 0.494 | 0.29 |
+| 44 beats | 0.245 | 0.385 | 0.224 | 0.514 | 0.33 |
+
+The tune's period is 16 beats. At block lengths that are **multiples of it**,
+every block starts at the same point in the tune, so all blocks resemble each
+other equally — flat, and useless to a clustering algorithm. At lengths that are
+**not**, each block's phase slides forward by a fixed amount, so blocks an even
+number apart come back into phase and odd ones do not. Clustering reads that as
+a clean A/B contrast and reports `ABABAB…`.
+
+The artifact wins outright: cluster quality 0.21 at 36 beats against 0.01 at the
+commensurate lengths. It is not a near miss to be down-weighted — a hypothesis
+incommensurate with the period is **guaranteed** to manufacture alternating
+structure, so those lengths are no longer generated at all. Widening the
+allowed period ratios by a single beat was tried and put the artifact straight
+back (quality 0.04, plainly-noise labels).
+
+What is left once the artifact is removed is the real problem: **at the correct
+16-beat length, similarity is 0.50 flat.** The A part and the B part resemble
+each other exactly as much as two passes of the A part do. The extracted melody
+carries the tune's periodicity but not enough detail to tell its sections apart.
+That is a melody-quality problem, not a search problem, and no form prior can
+fix it.
+
+So form now declines rather than guessing. Of the five recordings, two return a
+section and three report no structure found:
+
+| recording | before | after |
+|---|---|---|
+| bebop_1 | AABBC / 9 bar | *no structure* (quality 0.012) |
+| bebop_2 | AABCD / 12 bar | 8 bars of 4/4, one bar of 3 (quality 0.44) |
+| bebop_4 | AABBCCD / 16 bar | *no structure* (quality 0.071) |
+| bebop_5 | AABBCD / 16 bar | *no structure* |
+| memory_of_home | AABBCD / 16 bar | 6 bars of 4/4 (quality 0.081) |
+
+Three fewer scores get section structure, and that is the honest outcome: a
+wrong split makes consensus average unrelated music together, which is worse
+than not averaging at all.
+
+On the synthetic corpus, where the melody *is* good enough to separate sections,
+the same code moves form accuracy **0.67 → 0.80** (like-for-like, same
+environment, same backend).
+
+### What flexibility was added
+
+Three constraints the repertoire actually has, none of which the search used:
+
+* **Meter comes out of form, not into it.** Section length in beats is what the
+  audio determines; 2/4 and 4/4 are metrically nested, so the same recording is
+  correctly barred either way. Beat stress can barely choose between them. Bar
+  *count* can, because the 8-bar section is close to universal: a 16-beat
+  section is 8 bars only in 2/4, a 32-beat section only in 4/4.
+* **Odd bars.** A section may carry one bar of a different length — a 2/4 bar
+  dropped into a 4/4 tune is idiomatic here. Where that bar goes is decided by
+  which placement cuts through the fewest notes.
+* **Repeat counts vary.** The part *order* is a small closed set (`AB`, `ABC`);
+  how many times each part is played is not. Scoring the run-length encoding
+  rather than whole label strings makes `AABB`, `AABBB` and `AAABBAABB` all
+  score as the same form, while still penalising the run of four that signals a
+  section length wrong by a factor of two.
 
 ---
 

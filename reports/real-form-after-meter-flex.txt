@@ -1,0 +1,54 @@
+
+===== bebop_1
+    rhythm: raw tempo 112.3 -> 112.3 BPM (x1)
+    repetition: peak 0.547 at 8.6s (baseline 0.267, excess 0.281) -> period 16 beats
+    form: best hypothesis separates clusters by only 0.012, under the 0.08 floor; no section structure found
+    meter: 4/4 (phase 0, confidence 0.42)
+    form: no sections found; emitting a single unsectioned part
+    meter-note: beat-position strengths (phase 0): 1.91, 1.80, 1.77, 1.65
+    meter-note: beat3/beat1 = 0.928 -> 4/4 (2/4 vs 4/4 is weakly identifiable)
+    -> form  | 0 bars of 4/4 | 0.0 beats | conf 0.00 | lengths ()
+
+===== bebop_2
+    rhythm: raw tempo 123.0 -> 123.0 BPM (x1)
+    repetition: peak 0.639 at 30.9s (baseline 0.410, excess 0.230) -> no usable period
+    form: section length 8 bars of 4/4 (31 beats), offset 3, 14 passes, cluster quality 0.441, coverage 0.96
+    form: crooked section: bar lengths 3 beats against 4 elsewhere
+    form: crooked section -- bar lengths 4, 4, 4, 4, 4, 4, 4, 3
+    meter: 4/4 (phase 3.0, confidence 0.42)
+    meter-note: beat-position strengths (phase 1): 1.70, 1.51, 1.58, 1.64
+    meter-note: beat3/beat1 = 0.928 -> 4/4 (2/4 vs 4/4 is weakly identifiable)
+    meter-note: downbeat phase taken from section boundary at beat 3
+    -> form AAABAAAAAAAAAC | 8 bars of 4/4 | 31.0 beats | conf 0.43 | lengths (4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 3.0)
+
+===== bebop_4
+    rhythm: raw tempo 123.0 -> 123.0 BPM (x1)
+    repetition: peak 0.539 at 15.7s (baseline 0.242, excess 0.297) -> period 32 beats
+    form: best hypothesis separates clusters by only 0.071, under the 0.08 floor; no section structure found
+    meter: 4/4 (phase 2, confidence 0.56)
+    form: no sections found; emitting a single unsectioned part
+    meter-note: beat-position strengths (phase 2): 2.03, 1.95, 1.79, 1.96
+    meter-note: beat3/beat1 = 0.882 -> 4/4 (2/4 vs 4/4 is weakly identifiable)
+    -> form  | 0 bars of 4/4 | 0.0 beats | conf 0.00 | lengths ()
+
+===== bebop_5
+    rhythm: raw tempo 123.0 -> 123.0 BPM (x1)
+    repetition: peak 0.449 at 31.4s (baseline 0.261, excess 0.189) -> no usable period
+    form: no section hypothesis produced clean clusters
+    meter: 4/4 (phase 0, confidence 0.26)
+    form: no sections found; emitting a single unsectioned part
+    meter-note: beat-position strengths (phase 0): 1.91, 1.87, 1.87, 1.78
+    meter-note: beat3/beat1 = 0.982 -> 4/4 (2/4 vs 4/4 is weakly identifiable)
+    -> form  | 0 bars of 4/4 | 0.0 beats | conf 0.00 | lengths ()
+
+===== memory_of_home
+    rhythm: raw tempo 103.4 -> 103.4 BPM (x1)
+    repetition: peak 0.516 at 28.4s (baseline 0.399, excess 0.117) -> period 49 beats
+    form: section length 6 bars of 4/4 (24 beats), offset 5, 18 passes, cluster quality 0.081, coverage 0.96
+    meter: 4/4 (phase 1.0, confidence 0.37)
+    meter-note: beat-position strengths (phase 0): 1.85, 1.62, 1.75, 1.84
+    meter-note: beat3/beat1 = 0.946 -> 4/4 (2/4 vs 4/4 is weakly identifiable)
+    meter-note: downbeat phase taken from section boundary at beat 5
+    -> form AAAAAAABABCBAAABAB | 6 bars of 4/4 | 24.0 beats | conf 0.08 | lengths (4.0, 4.0, 4.0, 4.0, 4.0, 4.0)
+
+[exited with code 0]

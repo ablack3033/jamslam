@@ -324,23 +324,31 @@ that looked good:
 
 ### End-to-end on the five real recordings
 
-| recording | Melodia form | Basic Pitch form | presence check |
-|---|---|---|---|
-| bebop_1 | **failed** | AABBCDD / 15 bar | Melodia ✗ → BP ✓ |
-| bebop_2 | **failed** | AABCD / 12 bar | Melodia ✗ → BP ✓ |
-| bebop_4 | **failed** | AABBCCD / 16 bar | Melodia ✗ → BP ✓ |
-| bebop_5 | **failed** | AABBCD / 16 bar | Melodia ✗ → BP ✓ |
-| memory_of_home | ABBCD / 20 bar | AABBCD / 16 bar | Melodia ✗ → BP ✓ |
+| recording | presence check | form |
+|---|---|---|
+| bebop_1 | Melodia ✗ → BP ✓ | *no structure* (clusters separate by 0.012) |
+| bebop_2 | Melodia ✗ → BP ✓ | 8 bars of 4/4, one bar of 3 (quality 0.44) |
+| bebop_4 | Melodia ✗ → BP ✓ | *no structure* (0.071) |
+| bebop_5 | Melodia ✗ → BP ✓ | *no structure* |
+| memory_of_home | Melodia ✗ → BP ✓ | 6 bars of 4/4 (quality 0.081) |
 
 The melody-presence check flips from 0 of 5 to **5 of 5** — it has never before
-returned a clean verdict on real audio. Form detection returns structure on
-every recording instead of failing on four of five, and every result begins
-`AAB…`, which is the right shape.
+returned a clean verdict on real audio.
 
-It is still not right. 12-16 bars per section with six or seven distinct letters
-is not an old-time tune; AABB with 8-bar sections is. Form is finding something
-periodic and carving it wrongly. Uncertain-note counts stay high, and no
-recording is confidently identified.
+Form used to return a section length and an `AAB…` label sequence for all five.
+Those were not weak versions of the right answer; they were an artifact of
+searching section lengths incommensurate with the tune's period, which
+manufactures alternating structure out of nothing. See
+[`docs/RESEARCH.md`](docs/RESEARCH.md#form-the-phase-rotation-artifact) for the
+measurement. Removing it leaves the real problem exposed: at the *correct*
+section length, the A part and the B part resemble each other exactly as much as
+two passes of the A part do. The extracted melody carries the tune's periodicity
+but not enough detail to separate its sections.
+
+So three of five now report no structure and fall back to an unsectioned
+transcription. That is the honest outcome — a wrong split makes consensus
+average unrelated music together, which is worse than not averaging at all.
+Uncertain-note counts stay high, and no recording is confidently identified.
 
 ## Validation by identification
 
@@ -403,9 +411,20 @@ of bars. This is now handled end to end:
   one-bar. Previously a crooked section was not merely scored badly, it was
   never generated as a hypothesis at all, so the search silently returned the
   nearest wrong answer.
+- **Barring.** The barring is chosen *from* the section length rather than given
+  to it. 2/4 and 4/4 are metrically nested, so the same recording is correctly
+  barred either way and beat stress can barely choose between them — but bar
+  count can, because the 8-bar section is close to universal here. A 16-beat
+  section is 8 bars only in 2/4; a 32-beat section only in 4/4. Meter therefore
+  comes out of form rather than going into it, and `--meter` still overrides.
 - **Notation.** A crooked bar gets its own time signature rather than being
   padded out with a rest, and it is placed at the position that splits the
   fewest notes — the same judgement a transcriber makes by ear.
+- **Repeats.** The part *order* is a small closed set (`AB`, `ABC`); how many
+  times each part is played is not. Form is scored on the run-length encoding of
+  the labels, so `AABB`, `AABBB` and `AAABBAABB` all read as the same form,
+  while the run of four that signals a section length wrong by a factor of two
+  is still penalised.
 
 AABB with whole bars still gets a prior bonus, because it is genuinely far more
 common. Crooked stays reachable, at a mild disadvantage.
@@ -535,6 +554,12 @@ contain the melody. Three structural findings, each of which cost a measurement:
 3. **Exact slot matching is too brittle for human performances.** A ±1 slot
    tolerance roughly doubled the separation between same-section and
    different-section pairs.
+4. **A section length incommensurate with the tune's period manufactures
+   alternating structure.** Its phase slides forward each block, so even lags
+   come back into phase and odd ones do not, and clustering reads that as an A/B
+   contrast — at several times the cluster quality the *correct* length reaches,
+   where everything is in phase and so everything looks alike. This was the real
+   content of every `AAB…` result previously reported on real audio.
 
 ## Where this deviates from the original spec
 

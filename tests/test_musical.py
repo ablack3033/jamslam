@@ -148,6 +148,75 @@ def test_form_handles_a_crooked_six_bar_tune():
     assert [s.label for s in form.sections] == list("AABBAABB")
 
 
+def test_form_bars_a_sixteen_beat_section_as_eight_bars_of_two_four():
+    """The 8-bar norm decides the meter, not the other way round.
+
+    A 16-beat section is 8 bars in 2/4 and 4 bars in 4/4. Both are literally
+    correct -- the meters are metrically nested -- but only one of them is what
+    an old-time tune looks like. Beat stress cannot separate 2/4 from 4/4 with
+    any confidence; section length can, so form settles it.
+    """
+    a = [74, 76, 78, 79] * 8  # 4 notes = 2 beats, x8 = 16 beats
+    b = [69, 71, 73, 74] * 8
+    notes = []
+    for i, label in enumerate(["A", "A", "B", "B"] * 2):
+        notes.extend(_sequence(a if label == "A" else b, start_beat=i * 16))
+    # Deliberately handed the *wrong* prevailing meter; form must not take it.
+    form = analyze_form(notes, beats_per_bar=4)
+    assert form.beats_per_section == 16
+    assert form.bars_per_section == 8
+    assert form.meter == "2/4"
+    assert form.beats_per_bar == 2
+
+
+def test_form_finds_a_section_with_a_two_four_bar_dropped_in():
+    """Crooked in the way this repertoire is actually crooked.
+
+    Eight bars of 4/4 with one 2/4 bar inserted -- 34 beats rather than 32. The
+    section must still be recognised, and must be written as nine bars with one
+    of them short rather than padded out to a uniform grid.
+    """
+    a = [74, 76, 78, 79, 81, 79, 78, 76] * 8 + [83, 81, 79, 78]  # 32 + 2 beats
+    b = [69, 71, 73, 74, 76, 74, 73, 71] * 8 + [67, 69, 71, 72]
+    notes = []
+    for i, label in enumerate(["A", "A", "B", "B"] * 2):
+        notes.extend(_sequence(a if label == "A" else b, start_beat=i * 34))
+    form = analyze_form(notes, beats_per_bar=4)
+    assert form.beats_per_section == 34
+    assert form.beats_per_bar == 4
+    assert form.is_crooked
+    assert sorted(form.bar_lengths) == [2.0] + [4.0] * 8
+    assert [s.label for s in form.sections] == list("AABBAABB")
+
+
+def test_form_tolerates_a_part_played_three_times():
+    """Repeat counts vary in a jam; the part order does not."""
+    a = [74, 76, 78, 79, 81, 79, 78, 76] * 8
+    b = [69, 71, 73, 74, 76, 74, 73, 71] * 8
+    notes = []
+    for i, label in enumerate(["A", "A", "A", "B", "B", "A", "A", "B", "B"]):
+        notes.extend(_sequence(a if label == "A" else b, start_beat=i * 32))
+    form = analyze_form(notes, beats_per_bar=4)
+    assert form.bars_per_section == 8
+    assert [s.label for s in form.sections] == list("AAABBAABB")
+
+
+def test_form_refuses_a_segmentation_that_barely_separates():
+    """No structure must produce no form, not the best-scoring noise.
+
+    Left to itself the search always returns *something*, because some
+    hypothesis always scores highest even when every one of them is noise. On a
+    real recording that produced a 36-block label sequence with a cluster
+    quality of 0.012 -- and consensus would then have averaged unrelated music
+    together, which is the one failure this module exists to prevent.
+    """
+    rng = np.random.default_rng(0)
+    notes = _sequence(list(rng.integers(69, 84, size=512)))
+    form = analyze_form(notes, beats_per_bar=4)
+    assert form.sections == []
+    assert form.confidence == 0.0
+
+
 def test_form_returns_nothing_rather_than_guessing_on_short_input():
     form = analyze_form(_sequence([74, 76, 78, 79] * 2), beats_per_bar=4)
     assert form.sections == []
@@ -198,6 +267,38 @@ def test_consensus_outvotes_a_single_deviating_pass():
     assert 78 in pitches
     assert 77 not in pitches
     assert report.n_used == 4
+
+
+def test_consensus_writes_the_odd_bar_where_the_phrase_breaks():
+    """A crooked section is barred by phrasing, not mechanically at the end.
+
+    Form hands consensus the barring it chose -- here three bars of 4/4 and one
+    of 2/4. Which bar is the short one is left to consensus, because only it can
+    see where notes actually fall. Putting the short bar last would cut a
+    four-beat note in half; putting it second does not.
+    """
+    # Beats 0-3 and 6-13 are eighth-note runs; beats 4-6 are one long note that
+    # a barline at beat 12 would slice through.
+    notes = [
+        *_sequence([74, 76, 78, 79, 81, 79, 78, 76]),          # beats 0-4
+        _tn(83, 4, Fraction(2)),                                # beats 4-6
+        *_sequence([81, 79, 78, 76, 74, 76, 78, 79], start_beat=6),  # beats 6-10
+        *_sequence([81, 83, 84, 83], start_beat=10),            # beats 10-12
+        _tn(81, 12, Fraction(2)),                               # beats 12-14: spans 12
+    ]
+    instances = [SectionInstance("A", i, 0.0, 14.0, notes) for i in range(2)]
+    section, _ = build_section(
+        "A", instances, beats_per_section=14.0, beats_per_bar=4,
+        bar_lengths=(4.0, 4.0, 4.0, 2.0),
+    )
+    assert len(section.measures) == 4
+    lengths = [sum(float(n.duration_beats) for n in m.notes)
+               for m in section.measures]
+    # Whatever the placement, the section is still 14 beats in four bars...
+    assert sum(lengths) == pytest.approx(14.0)
+    # ...and the short bar is not the last one, because that placement is the
+    # only one that straddles the held note at beat 12.
+    assert lengths[-1] > 2.0
 
 
 def test_consensus_preserves_uncertainty_when_passes_split_evenly():
@@ -344,6 +445,39 @@ def test_form_plausibility_ranks_the_known_universe():
     # Things that are periodic but are not tunes must score well below.
     for bogus in ("AABBCCD", "AABBCDD", "ABCABC"):
         assert form_plausibility(list(bogus)) < 0.7, bogus
+
+
+def test_form_plausibility_is_flexible_about_repeat_counts():
+    """The part *order* is constrained; how often each part repeats is not.
+
+    A jam plays each part twice as a rule, but three times happens, once
+    happens, and the recording is cut off wherever it is cut off. What must
+    stay penalised is the run of four, because that is the signature of a
+    section-length hypothesis that is wrong by a factor of two.
+    """
+    from fiddle.form import form_plausibility
+
+    assert form_plausibility(list("AABBB")) > 0.6
+    assert form_plausibility(list("AAABBAABB")) > 0.6
+    # Cut off mid-repeat: the truncated tail must not be read as evidence.
+    assert form_plausibility(list("AABBA")) > 0.6
+    # Half-length hypothesis: every part appears to repeat four times.
+    assert form_plausibility(list("AAAABBBB")) < 0.25
+
+
+def test_choose_bar_layout_prefers_eight_bar_sections():
+    from fiddle.form import choose_bar_layout
+
+    # 8 bars is reachable under one barring or the other for both of these.
+    assert choose_bar_layout(16).bars == 8
+    assert choose_bar_layout(16).beats_per_bar == 2
+    assert choose_bar_layout(32).bars == 8
+    assert choose_bar_layout(32).beats_per_bar == 4
+    # Two beats short of eight bars of 4/4: still eight bars, one of them 2/4.
+    short = choose_bar_layout(30)
+    assert short.bars == 8 and short.is_crooked
+    # A length no barring makes plausible still returns something, scored low.
+    assert choose_bar_layout(40).plausibility < choose_bar_layout(32).plausibility
 
 
 def test_form_plausibility_keeps_unusual_forms_reachable():

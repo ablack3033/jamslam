@@ -153,13 +153,40 @@ class FormConfig:
     # Eight bars is the overwhelming norm. The others are the crooked and
     # short-section cases that genuinely occur; anything outside this list is
     # almost certainly the search carving periodic structure at the wrong scale.
+    # Order is meaningful: earlier entries are treated as more plausible.
     expected_section_bars: tuple[int, ...] = (8, 4, 6, 7, 9, 12, 16)
     min_section_bars: int = 4
     # Was 20, which let the search return 15- and 16-bar "sections" on real
     # recordings. No old-time section is that long; that result was the search
     # swallowing a section and its repeat into one block.
     max_section_bars: int = 12
+    # Bar lengths, in tracked beats, that a section may be notated with. The
+    # repertoire is written in 2/4 and in 4/4, and the two are metrically
+    # nested, so the *same audio* is correctly barred either way. Rather than
+    # ask the onset envelope to settle that (it barely can -- see meter.py),
+    # form detection tries both barrings of each candidate section length and
+    # keeps whichever produces a plausible bar count. The 8-bar norm is a far
+    # sharper discriminator than beat-three stress, so meter comes out of form
+    # rather than going into it.
+    meter_candidates: tuple[int, ...] = (2, 4)
+    # No section of this repertoire is shorter than this many tracked beats.
+    # Stated in beats rather than bars because the bar is exactly the thing
+    # under dispute: 4 bars means 8 beats in 2/4 and 16 in 4/4.
+    #
+    # Sixteen is the shortest a real section gets under either barring -- eight
+    # bars of 2/4, or four of 4/4. Twelve was tried and was a measurable
+    # mistake: on a real recording it let a 14-beat block win by being read as
+    # "four bars with a 2/4 bar dropped in", which scores well as a *barring*
+    # while being far too short to be a section at all.
+    min_section_beats: int = 16
     similarity_threshold: float = 0.62  # below this, two passes are not "the same"
+    # How much better within-cluster similarity must be than between-cluster
+    # before a segmentation counts as having found anything. A hypothesis under
+    # this floor has separated the blocks by a margin indistinguishable from
+    # noise, and emitting it is worse than emitting nothing: consensus would
+    # then average unrelated music together, which is the one failure this
+    # module exists to prevent.
+    min_cluster_quality: float = 0.08
     # Old-time tunes are one, two or occasionally three parts. Allowing four
     # let the search escape into forms like AABBCCD that do not exist.
     max_sections: int = 3

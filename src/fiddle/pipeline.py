@@ -13,7 +13,7 @@ split and the votes that produced it, without re-running anything.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 
 import numpy as np
@@ -126,7 +126,13 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
         raw_period = rep.peak_lag_sec * rhythm.tempo_bpm / 60.0
         if abs(raw_period - round(raw_period)) < 0.25:
             period_beats = float(round(raw_period))
-    form = analyze_form(timed, meter_analysis.beats_per_bar, cfg.form,
+    # An explicit meter override constrains the barring form may choose; without
+    # one, form searches both barrings and settles the meter itself.
+    form_cfg = cfg.form
+    if cfg.meter.override:
+        form_cfg = replace(form_cfg,
+                           meter_candidates=(meter_analysis.beats_per_bar,))
+    form = analyze_form(timed, meter_analysis.beats_per_bar, form_cfg,
                         contour_grid=contour_grid if len(contour_grid) else None,
                         period_beats=period_beats)
     log.append(
@@ -137,10 +143,31 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
     log.extend(f"form: {n}" for n in form.notes)
 
     if form.sections:
+        # Form's barring supersedes the onset-envelope meter estimate. 2/4 and
+        # 4/4 are metrically nested, so beat stress can barely tell them apart
+        # -- but section *length* can, because the 8-bar section is close to
+        # universal here, and a 16-beat section is 8 bars only in 2/4.
+        if not cfg.meter.override and form.beats_per_bar != meter_analysis.beats_per_bar:
+            meter_analysis.notes.append(
+                f"meter revised {meter_analysis.meter} -> {form.meter}: a "
+                f"{form.beats_per_section:g}-beat section is "
+                f"{form.bars_per_section} bars there"
+            )
+            meter_analysis.meter = form.meter
+            meter_analysis.beats_per_bar = form.beats_per_bar
+            # Section length is stronger evidence than beat stress, so the
+            # revised reading is at least as trustworthy as the one it replaced.
+            meter_analysis.confidence = max(meter_analysis.confidence,
+                                            float(min(0.8, form.confidence + 0.4)))
         meter_analysis.downbeat_phase = form.offset_beats % meter_analysis.beats_per_bar
         meter_analysis.notes.append(
             f"downbeat phase taken from section boundary at beat {form.offset_beats:g}"
         )
+        if form.is_crooked:
+            log.append(
+                "form: crooked section -- bar lengths "
+                + ", ".join(f"{length:g}" for length in form.bar_lengths)
+            )
     log.append(
         f"meter: {meter_analysis.meter} (phase {meter_analysis.downbeat_phase}, "
         f"confidence {meter_analysis.confidence:.2f})"
@@ -149,7 +176,7 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
     # 7. Consensus across repetitions -> canonical sections.
     if form.sections:
         sections, reports = build_tune_sections(
-            form, meter_analysis.beats_per_bar, cfg.consensus, cfg.confidence
+            form, form.beats_per_bar, cfg.consensus, cfg.confidence
         )
     else:
         sections, reports = _fallback_sections(timed, meter_analysis.beats_per_bar), []

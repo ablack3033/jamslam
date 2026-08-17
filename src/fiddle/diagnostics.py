@@ -84,6 +84,9 @@ def write_notes_json(result: TranscriptionResult, path: str | Path) -> Path:
         "form": {
             "bars_per_section": result.form.bars_per_section,
             "beats_per_section": result.form.beats_per_section,
+            "beats_per_bar": result.form.beats_per_bar,
+            "bar_lengths": list(result.form.bar_lengths),
+            "is_crooked": result.form.is_crooked,
             "offset_beats": result.form.offset_beats,
             "confidence": result.form.confidence,
             "observed": result.form.form,
@@ -252,8 +255,9 @@ def format_summary(result: TranscriptionResult) -> str:
         f"key           {s['key']}  (confidence {s['key_confidence']:.2f})",
         f"meter         {s['meter']}  (confidence {s['meter_confidence']:.2f})",
         f"tempo         {s['tempo_bpm']:.1f} BPM",
-        f"form          {s['form']}  ({s['bars_per_section']} bars/section, "
-        f"confidence {s['form_confidence']:.2f})",
+        f"form          {s['form']}  ({s['bars_per_section']} bars/section"
+        + (", crooked" if result.form.is_crooked else "")
+        + f", confidence {s['form_confidence']:.2f})",
         f"notes         {s['n_notes']} canonical, {s['n_uncertain']} flagged uncertain",
         f"melody        {s['melody_backend']} backend, "
         f"{s['voiced_fraction']:.0%} of frames voiced",

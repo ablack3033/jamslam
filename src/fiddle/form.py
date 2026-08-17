@@ -11,15 +11,27 @@ built to fail loudly (low confidence, few sections) rather than quietly.
 Method:
   1. Rasterize the quantized notes onto a fixed eighth-note slot grid, so any
      two equal-length stretches can be compared elementwise.
-  2. Search over section lengths in *bars* and over bar-aligned start offsets,
+  2. Search over section lengths in *beats* and over start offsets,
      partitioning the timeline into blocks of that length.
   3. Score each hypothesis by how cleanly the blocks cluster: high similarity
      within a cluster, low between clusters.
   4. Label clusters A, B, C... in order of first appearance.
+  5. Bar the winning length -- choose 2/4 or 4/4, and where any odd bar goes.
 
-An 8-bar section gets a small bonus, because it is genuinely the most common
-length -- but it is a bonus, not a constraint. The corpus includes a crooked
-6-bar tune specifically to keep that honest.
+Note the order of steps 2 and 5. Section length in beats is what the audio
+determines; the barring is a notational choice made afterwards, from that
+length. This inverts the obvious arrangement, and it matters: 2/4 and 4/4 are
+metrically nested, so the same recording is correctly barred either way, and
+asking the onset envelope to choose is close to hopeless. Asking instead which
+barring makes the section a plausible number of *bars* is easy, because the
+8-bar section is close to universal in this repertoire. Meter therefore comes
+out of form rather than going into it.
+
+The priors here are bonuses rather than constraints, and they are deliberately
+loose in the two directions this music is actually loose: a section may carry a
+bar of odd length (a 2/4 bar dropped into a 4/4 tune is idiomatic), and a part
+may be repeated any plausible number of times rather than exactly twice. The
+corpus includes a crooked 6-bar tune specifically to keep the first honest.
 """
 
 from __future__ import annotations
@@ -34,27 +46,188 @@ from .domain import TimedNote
 REST = -1
 FORM_GRID = 2  # slots per beat; eighth notes are enough to see structure
 
-#: The whole universe of forms we expect, with how common each is.
+#: The universe of *part orders*, with how common each is.
 #:
-#: This is the strongest constraint available and it was previously unused. The
-#: search ranged freely over section length, offset and cluster count, so it
-#: happily returned things like AABBCCD with 16 bars per section -- structure
-#: that is periodic but is not a tune. Old-time form is drawn from a very small
-#: set, so enumerate it and score membership rather than discovering it.
+#: This is the strongest constraint available. The search would otherwise range
+#: freely over section length, offset and cluster count, and happily return
+#: things like AABBCCD with 16 bars per section -- structure that is periodic
+#: but is not a tune.
 #:
-#: A recording is the form played several times through, possibly starting
-#: mid-tune and usually cut off mid-tune, so matching allows rotation and a
-#: truncated tail.
-KNOWN_FORMS: dict[str, float] = {
-    "AABB": 1.00,    # overwhelmingly the most common
-    "AABBCC": 0.50,  # three-part tunes
-    "AB": 0.45,      # played straight through without repeats
-    "AAB": 0.30,
-    "ABB": 0.30,
-    "ABAB": 0.25,
-    "AABBB": 0.20,
-    "AAABBB": 0.20,
+#: Note what is and is not enumerated here. The part order is a small closed
+#: set; the *repeat counts* are not. A jam plays each part twice as a rule, but
+#: three times happens, once happens, and the recording is cut off wherever it
+#: is cut off. So an earlier version that enumerated whole label strings
+#: ("AABB", "AABBB", "AAABBB", ...) was fighting a combinatorial explosion it
+#: could not win, and scored perfectly ordinary performances as unrecognised.
+#: Repeat counts are scored separately, per part, by
+#: :data:`_REPEAT_PLAUSIBILITY` -- which is what makes the prior flexible about
+#: repeats without loosening the part-order constraint at all.
+PART_SEQUENCES: dict[str, float] = {
+    "AB": 1.00,   # two-part tunes: overwhelmingly the most common
+    "ABC": 0.50,  # three-part tunes
+    "A": 0.35,    # one-part tunes
+    "ABCD": 0.15,
 }
+
+#: How plausible it is that a part was played N times in a row.
+#:
+#: Two is the norm. The other values are what you observe when the section
+#: length hypothesis is wrong by a factor of two: a half-length block makes each
+#: part appear to repeat four times, and a double-length block makes it appear
+#: once. Both stay reachable, because tunes really are played straight through
+#: sometimes, and a part really does get tripled at the end of a set.
+_REPEAT_PLAUSIBILITY: dict[int, float] = {1: 0.35, 2: 1.00, 3: 0.50, 4: 0.15}
+
+#: How plausible a section is when notated with this many bars. Derived from
+#: ``FormConfig.expected_section_bars``, whose order is meaningful.
+_BARS_RANK_WEIGHT = (1.00, 0.50, 0.45, 0.35, 0.35, 0.30, 0.25)
+_UNEXPECTED_BARS_WEIGHT = 0.12
+
+#: How plausible a single odd bar of this many beats is, inside a section whose
+#: other bars are regular. A 2-beat bar dropped into a 4/4 tune is completely
+#: idiomatic in this repertoire; a 1-beat bar almost never is.
+_ODD_BAR_PLAUSIBILITY = {1: 0.30, 2: 0.95, 3: 0.70, 5: 0.35, 6: 0.55, 7: 0.25}
+
+#: 4/4 and 2/4 are both standard for old-time; the tie is broken by bar count,
+#: not by this, which is deliberately almost flat.
+_METER_PLAUSIBILITY = {4: 1.00, 2: 0.95}
+
+
+@dataclass(frozen=True)
+class BarLayout:
+    """How a section of a given length in beats gets written down as bars."""
+
+    beats_per_bar: int
+    bar_lengths: tuple[float, ...]
+    plausibility: float
+
+    @property
+    def bars(self) -> int:
+        return len(self.bar_lengths)
+
+    @property
+    def meter(self) -> str:
+        return f"{self.beats_per_bar}/4"
+
+    @property
+    def is_crooked(self) -> bool:
+        return any(length != self.beats_per_bar for length in self.bar_lengths)
+
+
+def choose_bar_layout(
+    block_beats: float, config: FormConfig | None = None
+) -> BarLayout | None:
+    """Pick the most plausible barring of a section this many beats long.
+
+    Section length in beats is what the audio actually determines; bars are a
+    notational choice on top of it, and 2/4 and 4/4 are metrically nested, so
+    both are literally correct for the same recording. Choosing between them by
+    beat stress is nearly hopeless (see :mod:`fiddle.meter`). Choosing by *bar
+    count* is not, because the 8-bar section is close to universal in this
+    repertoire: a 16-beat section is 8 bars of 2/4 and 4 bars of 4/4, and the
+    first of those is a tune while the second is half of one.
+
+    Odd beats are handled the way a transcriber handles them -- either a short
+    bar is inserted (a 2/4 bar in an otherwise 4/4 tune, which is extremely
+    common here) or the spare beats are absorbed into one longer bar. Whichever
+    reads better wins. Returns ``None`` when no barring gives a bar count inside
+    the configured range.
+    """
+    cfg = config or FormConfig()
+    total = int(round(block_beats))
+    best: BarLayout | None = None
+
+    for beats_per_bar in cfg.meter_candidates:
+        meter_weight = _METER_PLAUSIBILITY.get(beats_per_bar, 0.8)
+        full, remainder = divmod(total, beats_per_bar)
+        variants: list[tuple[list[float], float, int]] = []
+        if remainder == 0:
+            variants.append(([float(beats_per_bar)] * full, 1.0, full))
+        else:
+            # An inserted short bar.
+            variants.append((
+                [float(beats_per_bar)] * full + [float(remainder)],
+                _ODD_BAR_PLAUSIBILITY.get(remainder, 0.20),
+                full,
+            ))
+            # ...or the spare beats absorbed into one long bar.
+            if full >= 1:
+                merged = beats_per_bar + remainder
+                variants.append((
+                    [float(beats_per_bar)] * (full - 1) + [float(merged)],
+                    _ODD_BAR_PLAUSIBILITY.get(merged, 0.20),
+                    full,
+                ))
+
+        for lengths, odd_weight, full_bars in variants:
+            bars = len(lengths)
+            if not cfg.min_section_bars <= bars <= cfg.max_section_bars:
+                continue
+            plausibility = _bars_plausibility(bars, cfg) * odd_weight * meter_weight
+            if bars != full_bars:
+                # "Eight bars with a 2/4 bar dropped in" is how a fiddler
+                # describes this, and it is much more plausible than the nine-bar
+                # section the raw count suggests. Score it both ways, keep the
+                # better reading, and pay a small penalty for the irregularity.
+                plausibility = max(
+                    plausibility,
+                    0.9 * _bars_plausibility(full_bars, cfg) * odd_weight * meter_weight,
+                )
+            layout = BarLayout(beats_per_bar, tuple(lengths), plausibility)
+            if best is None or layout.plausibility > best.plausibility:
+                best = layout
+    return best
+
+
+#: Ratios of the measured repetition period that a section may occupy. A
+#: section is the period, or half of it (when the tune's two parts repeat as a
+#: unit and the peak lands on the pair), or twice it (when a section's halves
+#: resemble each other and the peak lands on the half), or a quarter (when the
+#: peak found the whole AABB cycle).
+_PERIOD_RATIOS = (0.25, 0.5, 1.0, 2.0)
+
+
+def _candidate_lengths(
+    min_block: int, max_block: int, period_beats: float | None
+) -> list[int]:
+    """Which section lengths are worth testing.
+
+    When the repetition detector found a period, this is a *constraint* rather
+    than a preference, and that distinction was worth a measurement. A block
+    length incommensurate with the tune's period slides its phase forward by a
+    fixed amount each block, so blocks an even number apart come back into phase
+    and blocks an odd number apart do not. Clustering reads that as a clean A/B
+    contrast and reports ``ABABAB...`` -- with a cluster quality several times
+    better than the *correct* length achieves, because at the correct length
+    every block is in phase and so everything resembles everything.
+
+    Measured on a real recording: at block lengths of 16, 32 and 48 beats, mean
+    block similarity was 0.50 at every lag (flat -- in phase); at 12, 20, 28, 36
+    and 44 it alternated between 0.20 and 0.52 (phase rotation). The alternating
+    hypotheses won the search outright. Down-weighting them was not enough, so
+    incommensurate lengths are no longer generated at all.
+
+    The ratios are applied exactly. Widening them by a beat either way was
+    tried, on the theory that a crooked section might miss a whole ratio -- and
+    it put the artifact straight back, one beat off the true period instead of
+    four, with cluster quality of 0.04 and label sequences that were plainly
+    noise. It was also unnecessary: the period is measured from the audio, so a
+    crooked tune has a crooked period, and the exact ratio already fits it.
+    """
+    if not period_beats or period_beats <= 0:
+        return list(range(min_block, max_block + 1))
+    lengths = {int(round(period_beats * ratio)) for ratio in _PERIOD_RATIOS}
+    within = sorted(b for b in lengths if min_block <= b <= max_block)
+    # If the period rules out every plausible section length, it is more likely
+    # wrong than the whole repertoire is; fall back to the unconstrained scan.
+    return within or list(range(min_block, max_block + 1))
+
+
+def _bars_plausibility(bars: int, cfg: FormConfig) -> float:
+    if bars in cfg.expected_section_bars:
+        rank = cfg.expected_section_bars.index(bars)
+        return _BARS_RANK_WEIGHT[min(rank, len(_BARS_RANK_WEIGHT) - 1)]
+    return _UNEXPECTED_BARS_WEIGHT
 
 
 @dataclass
@@ -78,8 +251,21 @@ class FormAnalysis:
     # Beat position of the first section boundary. This doubles as the best
     # available downbeat estimate -- see analyze_form's docstring.
     offset_beats: float = 0.0
+    # How the section is barred. The prevailing bar length and the per-bar
+    # lengths within one section; the two differ when the section is crooked.
+    # This is form's output rather than its input -- see choose_bar_layout.
+    beats_per_bar: int = 4
+    bar_lengths: tuple[float, ...] = ()
     similarity_matrix: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     notes: list[str] = field(default_factory=list)
+
+    @property
+    def meter(self) -> str:
+        return f"{self.beats_per_bar}/4"
+
+    @property
+    def is_crooked(self) -> bool:
+        return any(length != self.beats_per_bar for length in self.bar_lengths)
 
     @property
     def form(self) -> str:
@@ -129,7 +315,7 @@ def analyze_form(
     # on a downbeat, so flooring to a bar keeps blocks bar-aligned.
     start = np.floor(start / beats_per_bar) * beats_per_bar
     total_beats = end - start
-    if total_beats < cfg.min_section_bars * beats_per_bar * 2:
+    if total_beats < cfg.min_section_beats * 2:
         return FormAnalysis([], 0, 0.0, 0.0,
                             notes=["performance too short to show repetition"])
 
@@ -139,10 +325,12 @@ def analyze_form(
     # 2/4 and 4/4 are metrically nested, so a section that is 8 bars of 4/4 is
     # 16 bars of 2/4 and both are correct. Tying the search to bar counts made
     # a benign meter ambiguity split real sections in half. Beats are the
-    # meter-independent quantity, and stepping by beats_per_bar keeps blocks
-    # bar-aligned either way.
-    min_block = max(cfg.min_section_bars * beats_per_bar, beats_per_bar)
-    max_block = min(cfg.max_section_bars * 4, int(total_beats // 2))
+    # meter-independent quantity, and the barring is chosen afterwards, from
+    # the winning length, by choose_bar_layout.
+    min_block = max(cfg.min_section_beats, min(cfg.meter_candidates))
+    max_block = min(cfg.max_section_bars * max(cfg.meter_candidates),
+                    int(total_beats // 2))
+    block_lengths = _candidate_lengths(min_block, max_block, period_beats)
     candidates: list[tuple] = []
 
     # Step by ONE BEAT, not one bar. Old-time is full of crooked tunes -- a
@@ -151,11 +339,13 @@ def analyze_form(
     # literally unrepresentable: the correct hypothesis was never generated, and
     # the search silently returned the nearest wrong one. This costs more
     # hypotheses, paid for by a narrower offset search below.
-    for block_beats in range(min_block, max_block + 1):
+    for block_beats in block_lengths:
         n_blocks_max = int(total_beats // block_beats)
         if n_blocks_max < 3:  # need at least one repeat plus a contrast
             continue
-        bars = block_beats / beats_per_bar
+        layout = choose_bar_layout(block_beats, cfg)
+        if layout is None:
+            continue  # no barring of this length gives a plausible bar count
         # Offsets are searched at BEAT resolution, not bar resolution. The
         # downbeat phase from onset energy is only about 70% reliable, and if it
         # is off by one beat then bar-aligned block starts can never coincide
@@ -181,11 +371,12 @@ def analyze_form(
             if quality is None:
                 continue
             coverage = len(blocks) * block_beats / total_beats
-            # Whole-bar sections are much more common, so they get the bonus;
-            # crooked ones stay reachable at a mild disadvantage.
-            prior = 1.08 if bars in cfg.expected_section_bars else 1.0
-            if bars != int(bars):
-                prior *= 0.92
+            # How well this length can be written down as bars at all. An
+            # 8-bar section under either barring scores full marks; a length
+            # that can only be barred as 5 or 11 bars is penalised heavily,
+            # because it is nearly always the search carving periodic structure
+            # at the wrong scale rather than a genuinely odd tune.
+            prior = 0.5 + 0.8 * layout.plausibility
             # AABB dominates the repertoire, so two distinct sections is the
             # single most likely answer. A gentle bonus, not a constraint --
             # one-part and three-part tunes must still be reachable.
@@ -209,13 +400,13 @@ def analyze_form(
             # actually find repetition; a segmentation where every block is its
             # own cluster explains nothing.
             repetition = 1.0 - (n_labels - 1) / max(1, len(blocks) - 1)
-            # THE domain prior: the form is drawn from a small known universe,
-            # played several times through. This subsumes the older
-            # runs-of-two heuristic and is far sharper -- it rejects
-            # AABBCCD outright rather than merely scoring it a little lower.
-            structure = max(_repeat_structure_score(labels),
-                            form_plausibility(labels))
-            structure *= 0.35 + 0.65 * form_plausibility(labels)
+            # THE domain prior: the part order is drawn from a small known
+            # universe and each part is repeated a plausible number of times.
+            # Sharp enough to reject AABBCCD outright rather than merely
+            # scoring it a little lower.
+            plausible_form = form_plausibility(labels)
+            structure = 0.3 * _repeat_structure_score(labels) + 0.7 * plausible_form
+            structure *= 0.35 + 0.65 * plausible_form
             # Coverage is squared: a hypothesis that leaves a quarter of the
             # recording unexplained is not a quarter worse, it is probably the
             # wrong section length being propped up by having less data to
@@ -237,12 +428,13 @@ def analyze_form(
                 * (0.35 + 0.95 * structure)
                 * _offset_plausibility(offset, first_note_beat)
             )
-            candidates.append((score, bars, offset, blocks, sim, labels, quality,
+            candidates.append((score, layout, offset, blocks, sim, labels, quality,
                                coverage, block_beats))
 
     if not candidates:
         return FormAnalysis([], 0, 0.0, 0.0,
                             notes=["no section hypothesis produced clean clusters"])
+
 
     # Take the best-scoring hypothesis outright. An earlier version preferred
     # the longest hypothesis scoring within 5% of the best, as a guard against
@@ -251,7 +443,25 @@ def analyze_form(
     # harmful, letting implausible 10- and 15-bar sections win on a technicality.
     best = max(candidates, key=lambda c: c[0])
 
-    score, bars, offset, blocks, sim, labels, quality, coverage, block_beats = best
+    score, layout, offset, blocks, sim, labels, quality, coverage, block_beats = best
+
+    # Refuse a segmentation whose clusters barely separate. This is the module's
+    # stated failure mode -- fail loudly rather than quietly -- and without the
+    # floor the search always returns *something*, because some hypothesis
+    # always scores highest even when every one of them is noise.
+    #
+    # The floor applies to the hypothesis actually being returned, not to the
+    # best quality anywhere in the candidate set. Those differ: scoring weighs
+    # quality against the musical priors, so the winner is regularly not the
+    # best-separated hypothesis, and checking the wrong one let a segmentation
+    # of quality 0.071 through a floor of 0.08.
+    if quality < cfg.min_cluster_quality:
+        return FormAnalysis(
+            [], 0, 0.0, 0.0,
+            notes=[f"best hypothesis separates clusters by only {quality:.3f}, "
+                   f"under the {cfg.min_cluster_quality:.2f} floor; "
+                   f"no section structure found"],
+        )
 
     sections: list[SectionInstance] = []
     for i, (label, (b_start, _)) in enumerate(zip(labels, blocks)):
@@ -274,16 +484,26 @@ def analyze_form(
         s.similarity_to_reference = float(sim[s.index][ref.index])
 
     log.append(
-        f"section length {bars:g} bars ({block_beats} beats), offset {offset:g}, "
-        f"{len(sections)} passes, cluster quality {quality:.3f}, coverage {coverage:.2f}"
+        f"section length {layout.bars} bars of {layout.meter} ({block_beats} beats), "
+        f"offset {offset:g}, {len(sections)} passes, "
+        f"cluster quality {quality:.3f}, coverage {coverage:.2f}"
     )
+    if layout.is_crooked:
+        odd = [f"{length:g}" for length in layout.bar_lengths
+               if length != layout.beats_per_bar]
+        log.append(
+            f"crooked section: bar lengths {', '.join(odd)} beats against "
+            f"{layout.beats_per_bar} elsewhere"
+        )
     confidence = float(np.clip(quality * (0.6 + 0.4 * coverage), 0.0, 0.99))
     return FormAnalysis(
         sections=sections,
-        bars_per_section=int(round(bars)),
+        bars_per_section=layout.bars,
         beats_per_section=float(block_beats),
         confidence=confidence,
         offset_beats=float(offset),
+        beats_per_bar=layout.beats_per_bar,
+        bar_lengths=layout.bar_lengths,
         similarity_matrix=sim,
         notes=log,
     )
@@ -507,17 +727,6 @@ def _cluster_at(
     return labels, quality
 
 
-# How plausible a run of N identical consecutive sections is. Old-time practice
-# is to play each section exactly twice before moving on, so a run of 2 is the
-# signature of a correct section length. The other values are what you observe
-# when the hypothesis is wrong by a factor of two:
-#   runs of 4  -> the block is half a section (each half repeats within it)
-#   runs of 1  -> the block swallowed a section and its repeat
-# Both remain reachable, because tunes really are sometimes played through
-# without repeats, or with a section tripled at the end of a set.
-_RUN_LENGTH_PLAUSIBILITY = {1: 0.50, 2: 1.00, 3: 0.55, 4: 0.30}
-
-
 #: Beats of pickup (anacrusis) we consider normal before the first downbeat.
 _MAX_PICKUP_BEATS = 2.0
 
@@ -556,22 +765,55 @@ def _offset_plausibility(offset: float, first_note_beat: float) -> float:
 def form_plausibility(labels: list[str]) -> float:
     """How well a label sequence looks like a known form played several times.
 
-    Allows rotation, because a jam may be joined mid-tune, and a truncated tail,
-    because recordings stop wherever they stop. Returns a small floor rather
-    than zero for unrecognised sequences, so an unusual but real form stays
-    reachable if the acoustic evidence for it is strong.
+    Scored on the run-length encoding rather than the raw string, which is what
+    makes it flexible about repeats. ``AABB``, ``AABBB`` and ``AAABBAABB`` all
+    encode to the same part order ``AB`` cycling, differing only in how many
+    times each part was held -- and repeat counts genuinely vary in a jam. An
+    earlier version enumerated whole label strings, so every extra repeat needed
+    its own entry and anything unlisted scored as noise.
+
+    Two allowances beyond that:
+
+    * **Rotation**, because a recording may be joined mid-tune, so the first
+      part heard need not be the tune's A part.
+    * **A truncated tail**, because recordings stop wherever they stop. The
+      final run is therefore not scored for length when there is other evidence
+      -- a part cut off after one pass says nothing about how often it repeats.
+
+    Returns a small floor rather than zero for unrecognised sequences, so an
+    unusual but real form stays reachable if the acoustic evidence is strong.
     """
-    seq = "".join(labels)
-    if not seq:
+    if not labels:
         return 0.0
+    runs = _run_length_encode(labels)
+    letters = "".join(letter for letter, _ in runs)
+
+    # The recording stops mid-repeat far more often than not, so drop the last
+    # run's count from the average once there is enough left to average over.
+    counts = [count for _, count in runs]
+    scored_counts = counts[:-1] if len(counts) > 2 else counts
+    repeat_score = float(np.mean(
+        [_REPEAT_PLAUSIBILITY.get(c, 0.10) for c in scored_counts]
+    ))
+
     best = 0.05
-    for form, weight in KNOWN_FORMS.items():
-        for rotation in range(len(form)):
-            rotated = form[rotation:] + form[:rotation]
-            repeated = (rotated * (len(seq) // len(rotated) + 2))[: len(seq)]
-            match = sum(1 for a, b in zip(seq, repeated) if a == b) / len(seq)
-            best = max(best, weight * match)
+    for sequence, weight in PART_SEQUENCES.items():
+        for rotation in range(len(sequence)):
+            rotated = sequence[rotation:] + sequence[:rotation]
+            cycled = (rotated * (len(letters) // len(rotated) + 2))[: len(letters)]
+            match = sum(1 for a, b in zip(letters, cycled) if a == b) / len(letters)
+            best = max(best, weight * match * repeat_score)
     return best
+
+
+def _run_length_encode(labels: list[str]) -> list[tuple[str, int]]:
+    runs: list[tuple[str, int]] = []
+    for label in labels:
+        if runs and runs[-1][0] == label:
+            runs[-1] = (label, runs[-1][1] + 1)
+        else:
+            runs.append((label, 1))
+    return runs
 
 
 def _repeat_structure_score(labels: list[str]) -> float:
@@ -585,19 +827,11 @@ def _repeat_structure_score(labels: list[str]) -> float:
     """
     if not labels:
         return 0.0
-    runs: list[int] = []
-    count = 1
-    for prev, cur in zip(labels, labels[1:]):
-        if cur == prev:
-            count += 1
-        else:
-            runs.append(count)
-            count = 1
-    runs.append(count)
+    runs = [count for _, count in _run_length_encode(labels)]
     # The final run is often truncated by the recording ending mid-repeat, so it
     # is excluded when we have enough other evidence.
     scored = runs[:-1] if len(runs) > 2 else runs
-    return float(np.mean([_RUN_LENGTH_PLAUSIBILITY.get(r, 0.2) for r in scored]))
+    return float(np.mean([_REPEAT_PLAUSIBILITY.get(r, 0.10) for r in scored]))
 
 
 def _rebase(note: TimedNote, origin: float) -> TimedNote:

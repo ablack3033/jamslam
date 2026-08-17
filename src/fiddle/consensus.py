@@ -58,6 +58,7 @@ def build_section(
     beats_per_bar: int,
     config: ConsensusConfig | None = None,
     confidence_config: ConfidenceConfig | None = None,
+    bar_lengths: tuple[float, ...] | None = None,
 ) -> tuple[TuneSection, ConsensusReport]:
     """Derive one canonical :class:`TuneSection` from its performed passes."""
     cfg = config or ConsensusConfig()
@@ -115,7 +116,7 @@ def build_section(
     notes = _slots_to_notes(
         voted, agreement, alternatives, instances, ccfg, salience, qerror
     )
-    measures = _to_measures(notes, beats_per_bar, beats_per_section)
+    measures = _to_measures(notes, beats_per_bar, beats_per_section, bar_lengths)
 
     observations = [
         SectionObservation(
@@ -140,16 +141,24 @@ def build_section(
 
 def build_tune_sections(
     form: FormAnalysis,
-    beats_per_bar: int,
+    beats_per_bar: int | None = None,
     config: ConsensusConfig | None = None,
     confidence_config: ConfidenceConfig | None = None,
 ) -> tuple[list[TuneSection], list[ConsensusReport]]:
+    """Build every canonical section, barred the way form detection chose.
+
+    ``beats_per_bar`` defaults to the form's own barring, which is the value to
+    use: form determines section length in beats and picks the barring that
+    makes that length a plausible number of bars, so it knows more about the
+    meter than the onset-envelope estimate does.
+    """
+    bpb = beats_per_bar if beats_per_bar is not None else form.beats_per_bar
     sections, reports = [], []
     for label in form.labels:
         instances = form.observations(label)
         section, report = build_section(
-            label, instances, form.beats_per_section, beats_per_bar,
-            config, confidence_config,
+            label, instances, form.beats_per_section, bpb,
+            config, confidence_config, form.bar_lengths or None,
         )
         sections.append(section)
         reports.append(report)
@@ -335,7 +344,10 @@ def _slots_to_notes(
 
 
 def _to_measures(
-    notes: list[Note], beats_per_bar: int, beats_per_section: float
+    notes: list[Note],
+    beats_per_bar: int,
+    beats_per_section: float,
+    bar_lengths: tuple[float, ...] | None = None,
 ) -> list[Measure]:
     """Distribute notes into bars, allowing one crooked bar per section.
 
@@ -344,28 +356,51 @@ def _to_measures(
     such a section onto a uniform grid pushes every later note across a barline
     and produces notation no one can read.
 
-    So when there is a remainder, exactly one bar absorbs it, and we choose
-    *which* bar by minimising the number of notes that straddle a barline. That
-    is the same judgement a transcriber makes by ear: the odd bar goes where the
-    phrase actually breaks.
+    ``bar_lengths`` is the barring form detection chose (see
+    :func:`fiddle.form.choose_bar_layout`); it fixes *how many* bars there are
+    and how long each is, but not their order. When it is absent we fall back to
+    filling with whole bars and letting one bar absorb the remainder.
+
+    Either way, when one bar is a different length from the rest we choose
+    *where* it goes by minimising the number of notes that straddle a barline.
+    That is the same judgement a transcriber makes by ear: the odd bar goes
+    where the phrase actually breaks, not mechanically at the end.
     """
     total = float(beats_per_section)
+    if bar_lengths:
+        lengths = list(bar_lengths)
+        odd = [i for i, length in enumerate(lengths) if length != beats_per_bar]
+        if len(odd) == 1:
+            spare = lengths.pop(odd[0])
+            lengths = _place_odd_bar(notes, lengths, spare)
+        return _fill_measures(notes, lengths)
+
     full_bars = int(total // beats_per_bar)
     remainder = total - full_bars * beats_per_bar
 
     if remainder < 1e-6 or full_bars == 0:
         lengths = [float(beats_per_bar)] * max(1, full_bars)
     else:
-        best_lengths, best_cost = None, float("inf")
-        # Try putting the odd bar at each position; keep the least disruptive.
-        for pos in range(full_bars + 1):
-            lengths = [float(beats_per_bar)] * full_bars
-            lengths.insert(pos, remainder)
-            cost = _straddle_cost(notes, lengths)
-            if cost < best_cost:
-                best_lengths, best_cost = lengths, cost
-        lengths = best_lengths or [float(beats_per_bar)] * full_bars
+        lengths = _place_odd_bar(notes, [float(beats_per_bar)] * full_bars, remainder)
 
+    return _fill_measures(notes, lengths)
+
+
+def _place_odd_bar(
+    notes: list[Note], regular: list[float], odd: float
+) -> list[float]:
+    """Insert the odd bar wherever it cuts through the fewest notes."""
+    best_lengths, best_cost = None, float("inf")
+    for pos in range(len(regular) + 1):
+        lengths = list(regular)
+        lengths.insert(pos, odd)
+        cost = _straddle_cost(notes, lengths)
+        if cost < best_cost:
+            best_lengths, best_cost = lengths, cost
+    return best_lengths or [*regular, odd]
+
+
+def _fill_measures(notes: list[Note], lengths: list[float]) -> list[Measure]:
     measures = [Measure(notes=[], number=i + 1) for i in range(len(lengths))]
     edges = _edges(lengths)
     for note in notes:

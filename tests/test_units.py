@@ -509,3 +509,63 @@ def test_sustain_emphasis_preserves_length_and_finiteness():
     assert len(out.samples) == len(a.samples)
     assert np.all(np.isfinite(out.samples))
     assert out.sample_rate == sr
+
+
+# --------------------------------------------------------------------------
+# backend resolution
+# --------------------------------------------------------------------------
+
+
+def test_basic_pitch_is_the_default_backend():
+    from fiddle.config import Config
+
+    assert Config().melody.backend == "basicpitch"
+
+
+def test_unavailable_backend_falls_back_and_says_so(capsys):
+    """The fallback must be loud.
+
+    Basic Pitch is the default but cannot be installed alongside this package,
+    so a fresh checkout will fall back. A *silent* fallback would be worse than
+    a crash: choosing a backend is meaningful precisely because it changes the
+    result, so a user must never believe they are running Basic Pitch when they
+    are not.
+    """
+    import importlib.util
+
+    from fiddle.melody import get_extractor
+
+    extractor = get_extractor("basicpitch")
+    if importlib.util.find_spec("basic_pitch") is None:
+        assert extractor.name != "basicpitch"
+        assert "falling back" in capsys.readouterr().err
+    else:  # pragma: no cover - only in the isolated basic-pitch environment
+        assert extractor.name == "basicpitch"
+
+
+def test_fallback_probes_availability_before_returning():
+    """Regression: the probe must happen at construction, not at extract().
+
+    Basic Pitch imports lazily inside extract(), so an unavailable backend used
+    to construct cleanly and fail minutes later -- after the audio had been
+    decoded -- with the fallback never firing.
+    """
+    import importlib.util
+
+    import pytest as _pytest
+
+    from fiddle.melody import _build
+
+    if importlib.util.find_spec("basic_pitch") is not None:  # pragma: no cover
+        _pytest.skip("basic-pitch is installed here")
+    with _pytest.raises(ImportError):
+        _build("basicpitch", None)
+
+
+def test_unknown_backend_still_raises():
+    import pytest as _pytest
+
+    from fiddle.melody import get_extractor
+
+    with _pytest.raises(ValueError):
+        get_extractor("no_such_backend")

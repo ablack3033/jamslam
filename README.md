@@ -22,6 +22,32 @@ python3 -m venv .venv
 sudo apt-get install -y ffmpeg     # or: brew install ffmpeg
 ```
 
+### The default backend needs its own environment
+
+**Basic Pitch is the default melody backend**, because it measured far better on
+real jam recordings than anything else tried (see
+[Best known approach](#best-known-approach-basic-pitch-with-a-register-floor)).
+It pins `numpy<2` and pulls TensorFlow, so it *cannot* be installed alongside the
+rest of this package. Give it its own environment:
+
+```bash
+python3 -m venv .venv-bp
+.venv-bp/bin/pip install basic-pitch essentia -e .
+.venv-bp/bin/fiddle-transcribe recording.m4a
+```
+
+The environment above works without it: an unavailable backend **falls back to
+Essentia and says so on stderr**.
+
+```
+melody backend 'basicpitch' unavailable (basic-pitch is not installed in this
+environment); falling back to 'essentia'
+```
+
+The fallback is deliberately loud. Choosing a backend is meaningful precisely
+because it changes the result, so you should never be left believing you ran
+Basic Pitch when you did not.
+
 Check which melody backends came up:
 
 ```bash

@@ -53,10 +53,19 @@ unambiguous:
 The selection rule that measured best is deliberately simple: **discard
 everything below D4, then take the loudest note sounding at each instant.**
 
+**This is now the default backend.** The numbers above were produced by an
+ad-hoc script, so before defaulting to it the *shipped* code path was run
+end-to-end in the isolated environment and reproduced them: voiced 0.52,
+median 69.0, modal 40.7%, locked 26.5%, REP 0.284 against the script's 0.286.
+
 **Caveats.** Basic Pitch pins `numpy<2` and pulls TensorFlow, so it cannot share
-the main environment — it runs in a separate venv and hands over note events.
-Its model ships inside the wheel, so it needs no network at inference, which also
-makes it viable for the offline/WASM deployment discussed elsewhere.
+the main environment — it needs its own venv. Because the default therefore
+fails on a plain checkout, backend resolution falls back to Essentia and prints
+a warning; the fallback is loud on purpose, since a silent one would let someone
+believe they were running Basic Pitch when they were not.
+
+Its model ships inside the wheel, so it needs no network at inference, which
+also makes it viable for the offline/WASM deployment discussed elsewhere.
 
 ---
 

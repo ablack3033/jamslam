@@ -16,7 +16,15 @@ from typing import Any
 
 @dataclass(frozen=True)
 class MelodyConfig:
-    backend: str = "essentia"  # "essentia" | "pyin"
+    # "basicpitch" | "essentia" | "fiddle" | "pyin".
+    #
+    # Basic Pitch is the default because it measured best on real jam audio by a
+    # wide margin -- it more than halves the rate at which the extracted line
+    # tracks the bass, without costing repetition (see docs/RESEARCH.md). It
+    # cannot share this environment, though: it pins numpy<2 and pulls
+    # TensorFlow. So resolution falls back to Essentia when it is not installed,
+    # loudly rather than silently -- see fiddle.melody.get_extractor.
+    backend: str = "basicpitch"
     sample_rate: int = 44100
     frame_size: int = 2048
     hop_size: int = 128  # ~2.9 ms at 44.1 kHz; Melodia's documented default

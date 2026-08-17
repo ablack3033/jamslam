@@ -217,7 +217,8 @@ tune's period (higher is better).
 | Melodia + sustain mask | 53.0% | 0.248 |
 | frame-level Viterbi | 8.7% | 0.041 |
 | contour-level DP | 24.4% | 0.173 |
-| **Basic Pitch, floor D4, loudest voice** | **26.3%** | **0.295** |
+| Basic Pitch + sustain mask | 28.3% | 0.284 |
+| **Basic Pitch, floor D4, loudest voice** | **26.5%** | **0.286** |
 
 Basic Pitch is the only approach that improves bass independence **without**
 sacrificing repetition. Everything else traded one against the other, which is
@@ -231,6 +232,12 @@ carry register, duration, amplitude and overlap. The rule that measured best is
 deliberately blunt: **discard everything below D4, then take the loudest note
 sounding at each instant.** Taking the *highest* note instead — the obvious
 rule — measured worse on both, because it chases upper partials.
+
+Stacking the sustain mask underneath it does **not** help — locking rises and
+coverage falls monotonically, because the mask deletes signal Basic Pitch was
+using. The two are substitutes, not complements: the mask helps Melodia, which
+has no other way to tell the fiddle from the guitar, and is redundant under a
+model that already separates the voices.
 
 It cannot share the main environment (it pins `numpy<2` and pulls TensorFlow),
 so it runs from a separate venv. Its model ships inside the wheel, so inference

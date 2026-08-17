@@ -101,8 +101,31 @@ own recent peak emphasises sustained sources:
 | 3 | 35.0% | 53.0% | 0.248 |
 
 Modest, monotonic, costs nothing, and needs no model. It is a physical property
-of the ensemble that generic melody extraction cannot know. Worth combining with
-Basic Pitch, which has not yet been tried.
+of the ensemble that generic melody extraction cannot know.
+
+### ...but it does not combine with Basic Pitch
+
+The obvious next step, since the two attack the problem independently. Tested:
+
+| | notes | voiced | locked ↓ | REP ↑ |
+|---|---|---|---|---|
+| Basic Pitch alone | 3056 | 0.52 | **26.5%** | **0.286** |
+| + sustain² | 2342 | 0.42 | 28.2% | 0.260 |
+| + sustain³ | 1967 | 0.38 | 28.3% | 0.284 |
+| + sustain⁴ | 1592 | 0.34 | 31.3% | 0.284 |
+
+**The mask makes Basic Pitch slightly worse, monotonically.** Locking rises
+26.5% → 31.3%, coverage falls 0.52 → 0.34, and repetition never improves. Note
+count halves: the mask is deleting signal Basic Pitch was using.
+
+They are **substitutes, not complements.** The mask helped Melodia because
+Melodia had no other way to tell the fiddle from the guitar; Basic Pitch already
+separates the voices, and does it better than a spectral heuristic can. Applying
+both pays the mask's cost -- discarded signal -- for a discrimination that is
+already handled.
+
+Keep the mask for the Melodia path, where it earns its place. Do not stack it
+under Basic Pitch.
 
 ---
 
@@ -148,7 +171,7 @@ Next steps in priority order:
    without it.
 2. **Try Demucs** in an environment with network access; remove the bass stem
    before extraction.
-3. **Combine the sustain mask with Basic Pitch** — they attack the problem
-   independently and have not been tried together.
-4. **Add the diatonic prior** to melody selection; chroma pins the root reliably
-   even on noisy audio (`bebop_1` → D, scale fit 0.70).
+3. **Add the diatonic prior** to melody selection; chroma pins the root reliably
+   even on noisy audio (`bebop_1` → D, scale fit 0.70). Untried.
+4. ~~Combine the sustain mask with Basic Pitch~~ — tested, does not help; see
+   above. They are substitutes rather than complements.

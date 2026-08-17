@@ -115,3 +115,55 @@ def write_wav(path: str | Path, audio: Audio) -> None:
         w.setsampwidth(2)
         w.setframerate(audio.sample_rate)
         w.writeframes(pcm16.tobytes())
+
+
+def emphasize_sustained(
+    audio: Audio,
+    power: float = 2.0,
+    lookback_sec: float = 0.15,
+    n_fft: int = 2048,
+    hop_length: int = 256,
+) -> Audio:
+    """Attenuate plucked instruments relative to the bowed one.
+
+    In an old-time jam the fiddle is the **only bowed instrument** -- banjo,
+    guitar, mandolin and bass are all plucked. That is a physical asymmetry a
+    generic melody extractor cannot know about, and it is directly measurable:
+    a plucked note decays from a sharp attack, so its magnitude sits well below
+    its own recent peak, while a bowed note sustains near it.
+
+    So each time-frequency bin is scaled by how close it is to its recent
+    maximum. Bins that are still ringing near their peak survive; bins in the
+    tail of a decay are attenuated. ``power`` sets how aggressive that is.
+
+    Measured on a real recording, raising ``power`` monotonically reduces both
+    drone-parking and bass-tracking in the extracted melody. It is a modest
+    effect on its own, but it costs nothing and needs no model.
+    """
+    import librosa
+    from scipy.ndimage import maximum_filter1d
+
+    if power <= 0:
+        return audio
+
+    y = np.asarray(audio.samples, dtype=np.float32)
+    stft = librosa.stft(y, n_fft=n_fft, hop_length=hop_length)
+    magnitude, phase = np.abs(stft), np.angle(stft)
+
+    lookback = max(1, int(lookback_sec * audio.sample_rate / hop_length))
+    recent_peak = maximum_filter1d(
+        magnitude, size=2 * lookback + 1, axis=1, origin=-lookback // 2
+    )
+    sustain = np.clip(magnitude / (recent_peak + 1e-9), 0.0, 1.0) ** power
+
+    masked = librosa.istft(
+        magnitude * sustain * np.exp(1j * phase), hop_length=hop_length, length=len(y)
+    )
+    peak = float(np.max(np.abs(masked)))
+    if peak > 1e-9:
+        masked = masked / peak * 0.9
+    return Audio(
+        samples=masked.astype(np.float32),
+        sample_rate=audio.sample_rate,
+        source_path=audio.source_path,
+    )

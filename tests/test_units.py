@@ -454,3 +454,58 @@ def test_contour_decode_returns_empty_for_no_contours():
 
     midi, conf = decode_contours([], [], [], 100, 0.01)
     assert len(midi) == 100 and np.all(np.isnan(midi))
+
+
+# --------------------------------------------------------------------------
+# sustain emphasis (bowed vs plucked)
+# --------------------------------------------------------------------------
+
+
+def _tone(freq, dur, sr, decay=None):
+    t = np.arange(int(dur * sr)) / sr
+    y = np.sin(2 * np.pi * freq * t)
+    if decay is not None:
+        y = y * np.exp(-t / decay)
+    return y.astype(np.float32)
+
+
+def test_sustain_emphasis_attenuates_a_pluck_more_than_a_bow():
+    """The physical asymmetry the whole idea rests on, asserted directly.
+
+    An old-time jam's fiddle is the only bowed instrument; everything else is
+    plucked and therefore decays. A sustained tone must survive the mask better
+    than a decaying one of the same starting amplitude.
+    """
+    from fiddle.audio import Audio, emphasize_sustained
+
+    sr = 22050
+    bowed = Audio(_tone(440.0, 2.0, sr), sr)
+    plucked = Audio(_tone(440.0, 2.0, sr, decay=0.25), sr)
+
+    def retained(a):
+        before = float(np.sqrt(np.mean(a.samples[sr // 2:] ** 2)))
+        after_audio = emphasize_sustained(a, power=3.0)
+        after = float(np.sqrt(np.mean(after_audio.samples[sr // 2:] ** 2)))
+        # Normalize out the overall gain the mask applies.
+        whole = float(np.sqrt(np.mean(after_audio.samples ** 2))) + 1e-12
+        return (after / whole) / (before / (float(np.sqrt(np.mean(a.samples ** 2))) + 1e-12))
+
+    assert retained(bowed) > retained(plucked)
+
+
+def test_sustain_emphasis_is_a_no_op_at_zero_power():
+    from fiddle.audio import Audio, emphasize_sustained
+
+    a = Audio(_tone(440.0, 0.5, 22050), 22050)
+    assert emphasize_sustained(a, power=0.0) is a
+
+
+def test_sustain_emphasis_preserves_length_and_finiteness():
+    from fiddle.audio import Audio, emphasize_sustained
+
+    sr = 22050
+    a = Audio(_tone(330.0, 1.0, sr, decay=0.4), sr)
+    out = emphasize_sustained(a, power=2.0)
+    assert len(out.samples) == len(a.samples)
+    assert np.all(np.isfinite(out.samples))
+    assert out.sample_rate == sr

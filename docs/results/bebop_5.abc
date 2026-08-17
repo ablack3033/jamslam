@@ -5,8 +5,8 @@ L:1/8
 Q:1/4=123
 K:A
 P:A
-|:E/2 E/2 E/2 E/2 E/2 e/2 e/2 e/2 A/2 e/2 e/2 d/2 e/2 e/2 A/2 z/2|A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 e/2 d/2 e/2 E/2|d/2 d A/2 E/2 E/2 A/2 A/2 A/2 A/2 A c/2 c/2 e/2 E/2|A/2 A/2 A/2 A/2 A/2 =g/2 A/2 A/2 A/2 e/2 A/2 =g/2 A/2 e/2 A/2 A/2|E/2 A/2 A/2 e/2 e/2 e/2 e/2 c/2 c/2 c/2 c/2 A/2 A/2 A/2 A/2 A/2|^A/2 G/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 c/2 e/2 A/2 A/2|A/2 A/2 e/2 e/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 d/2 A/2|A/2 f/2 f/2 A/2 A/2 A/2 A/2 A/2 A/2 f/2 f/2 A/2 A/2 A/2 f/2 f/2|A/2 A/2 A/2 A/2 A/2 A/2 e/2 e/2 e/2 e/2 d/2 d/2 E/2 e/2 B/2 B/2|e/2 A/2 A/2 G/2 G/2 c/2 E/2 E/2 A/2 A/2 d/2 d/2 c/2 E/2 B/2 B/2|E/2 E/2 E/2 E/2 A/2 A/2 E/2 E/2 c/2 E/2 E/2 d/2 E/2 E/2 B/2 ^A/2|A/2 A/2 A/2 A c/2 E/2 E/2 E/2 A/2 E/2 E/2 E/2 E/2 B/2 B/2:|
+|:A ^A/2 A E e e/2 A/2 e3/2 B|c/2 G e/2 A E E E E E|A B/2 E E E A/2 d/2 E/2 c B|A A F/2 A2 E3/2 E/2 c/2 ^A|A A/2 E3/2 E A A A B|B/2 A A3 E/2 b/2 A/2 g/2 c A|A/2 e e A A A A/2 E E/2 z/2|f/2 A A3/2 A3/2 B f A A|A/2 e2 E/2 c/2 A A/2 E/2 c/2 e/2 E/2 A/2 z/2|G A2 A A A A A/2 f/2|d e c A A A A f/2 A|A3/2 A A A A A A z/2:|
 P:B
-|f ^A2 ^A3 =g/2 c/2 c2|G6 ^A3|=g/2 =g/2 F/2 d/2 =c7/2 ^d/2 z2|^A/2 ^A8|A13/2 =g z/2|^A B/2 =c/2 =G/2 =G/2 =c2 =f/2 =G7/2|a'/2 ^d/2 c/2 c9/2 =F13/2|f3/2 d13/2|d3/2 =c' z11/2|^d3/2 d/2 d3 g/2 ^d/2 ^d/2 g/2 g/2 G/2|G E/2 A/2 G c/2 c/2 a'/2 G/2 d/2 d/2 c/2 c/2 e|e F5/2 E/2 c/2 c/2 c2 d/2 =f/2|
+|f ^A2 ^A3 =g/2 c5/2|G6 ^A3|=g F/2 d/2 =c7/2 ^d/2 z2|^A17/2|A13/2 =g z/2|^A B/2 =c/2 =G =c2 =f/2 =G7/2|a'/2 ^d/2 c4 z =F13/2|f3/2 d13/2|d3/2 =c' z11/2|^d3/2 d7/2 g/2 ^d g G3/2|E/2 A/2 G c a'/2 G/2 d c e2|F5/2 E/2 c c2 d/2 =f/2 z|
 P:C
-|^d''/2 g3/2 c'' c4 d|e/2 =c/2 =f5/2 ^d/2 B/2 B/2 c d3|G3/2 B d'2 =G5/2 z|^d/2 B/2 =c''/2 =F3/2 =c''9/2 ^A|B/2 ^d c3 A/2 =g5/2 z/2|g2 =f/2 A/2 A5/2 ^d2 ^d3|f3/2 g3/2 =f3/2 ^d z5/2|c/2 e/2 ^d3/2 c5/2 B c/2 ^d c|=f3/2 e/2 g B d3/2 F3/2 c|B/2 =f/2 =f/2 g2 B3/2 ^A/2 a/2 G/2 c/2 c5/2|=F3/2 ^A/2 ^A/2 A3/2 G E/2 =G z3/2|E3 d/2 E5/2 B =g/2 z/2|
+|^d''/2 g3/2 c'' c4 d|e/2 =c/2 =f5/2 ^d/2 B c d3|G3/2 B d'2 =G5/2 z|^d/2 B/2 =c''/2 =F3/2 =c''9/2 ^A|B/2 ^d c3 A/2 =g5/2 z/2|g2 =f/2 A3 ^d2 ^d3|f3/2 g3/2 =f3/2 ^d z5/2|c/2 e/2 ^d3/2 c5/2 B c/2 ^d c|=f3/2 e/2 g B d3/2 F3/2 c|B/2 =f g2 B3/2 ^A/2 a/2 G/2 c3|=F3/2 ^A A3/2 G E/2 =G z3/2|E3 d/2 E5/2 B =g/2 z/2|

@@ -43,10 +43,21 @@ frequency floor:
 Above 400 Hz there is no melody, only a sustained A4 drone. An old-time fiddle
 tune in D lives around D5-A5; that region is empty here.
 
-**4. The control passes.** The same check on synthetic audio containing a known
-fiddle melody -- including the hardest setting, with two fiddles, banjo, guitar
-and bass -- reports **0% bass coupling** and is not flagged. The measure
-separates the two cases completely.
+**4. The control was invalid, and this is a correction.** An earlier version of
+this document claimed the same check reports 0% bass coupling on synthetic audio
+containing a known fiddle melody, and called that a clean separation. It was an
+artifact: the synthetic bass is too short-decayed for Melodia to track at all,
+so there were *zero* simultaneously-voiced frames and the measure returned its
+default. The check never ran. It has since been changed to return "not assessed"
+rather than zero, so it fails closed.
+
+The measure was also reformulated. It used to ask whether the melody-to-bass
+interval was an octave or a fifth, which is confounded: a fiddle playing in its
+low register over a root-position accompaniment genuinely sits an octave above
+the bass much of the time. It now asks whether the interval is **locked**, since
+a real melody's interval to the bass varies as the melody moves. On constructed
+contours a rigid octave scores 1.00 and an independent melody 0.20; bebop_1
+scores 0.63 under Melodia and 0.41 under the fiddle-specific extractor.
 
 ## What was genuinely learned
 
@@ -56,14 +67,25 @@ detected 112.3 BPM. That is real structure, and it is what the accompaniment's
 chord cycle looks like. **Repetition alone does not prove a melody was found**,
 which is a limitation of the repetition objective worth remembering.
 
-## What this cannot settle
+## Correction: the fiddle is present
 
-Whether the fiddle is absent, merely quiet, or playing in the low register where
-the guitar masks it. That needs someone who can listen. Two things would resolve
-it quickly:
+The recordings are confirmed fiddle-led. An earlier reading of this evidence --
+that no fiddle melody was recoverable -- was wrong. What the evidence actually
+shows is that **Melodia's melody *selection* picks the wrong voice**, not that
+the fiddle is missing.
 
-1. **Is bebop_1 fiddle-led?** If it is banjo- or guitar-led, the premise of the
-   whole pipeline does not apply to it and it is the wrong test case.
-2. **A recording where the fiddle is close to the microphone.** The melody has
-   to win the salience contest against instruments that are physically nearer
-   the phone, and in these five recordings it does not.
+Looking at every salience peak rather than Melodia's single choice makes this
+visible. Over 90-114s there are three layers: a static line near A3, a static
+line at D4, and a **third layer around F#4-D5 that moves melodically**. Melodia
+selects the static D4 because it is the most salient; the moving line above it
+is the fiddle.
+
+That motivated a fiddle-specific extractor (`--melody-backend fiddle`) which
+reuses Essentia's salience and contour tracking but replaces the final selection
+with three domain rules: a melody moves where a drone does not, the melody is
+usually the top voice, and a contour at a locked interval above a lower one is
+its harmonic. On bebop_1 it moves time-on-a-single-pitch from 42% to 27% and
+interval locking from 63% to 41%.
+
+Not solved, but no longer mysterious: the melody is in the signal, and the task
+is to select it.

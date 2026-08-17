@@ -51,7 +51,7 @@ least confident notes:
   ...
 ```
 
-Useful flags: `--melody-backend {essentia,pyin,basicpitch}`, `--key "A mixolydian"`,
+Useful flags: `--melody-backend {essentia,fiddle,pyin,basicpitch}`, `--key "A mixolydian"`,
 `--meter 2/4`, `--no-consensus`, `--banjo`, `--identify`, `--config overrides.json`.
 
 ### Identify the tune
@@ -203,6 +203,52 @@ takes it.
 The honest conclusion: on real audio the bottleneck is **upstream of everything
 clever**. Consensus and form analysis cannot help if the contour does not
 contain the melody. Fix extraction on real recordings first.
+
+## Melody selection is the real problem on real audio
+
+Melodia's pitch *tracking* is good. Its melody *selection* is what fails on a
+phone recording of a jam: it builds a salience function over the whole mix and
+picks the strongest coherent contour, and in a real circle the guitar and bass
+are often physically closer to the microphone than the fiddle.
+
+Looking at every salience peak rather than Melodia's single choice shows three
+layers in a representative window of `bebop_1`: a static line near A3, a static
+line at D4, and a third layer around F#4-D5 that **moves melodically**. Melodia
+selects the static D4. The fiddle is the moving line above it.
+
+`--melody-backend fiddle` reuses Essentia's salience computation and contour
+tracking -- the parts that work -- and replaces only the final selection, using
+three things a generic selector does not know:
+
+* **A melody moves; a drone does not.** A contour holding one pitch for a second
+  or more is an open string or a held chord tone, however salient.
+* **The melody is usually the top voice**, even when it is quieter.
+* **A contour at a locked interval above a lower one is that lower one's
+  harmonic**, not an independent line.
+
+On `bebop_1` this moves time-spent-on-a-single-pitch from 42% to 27%, and
+interval-locking to the bass from 63% to 41%. Better, not solved.
+
+### A check that fails closed
+
+`presence.py` asks, before transcribing, whether there is a melody here at all,
+and the pipeline reports `melody_found`. Emitting a tidy score for a recording
+whose melody was never found is the worst thing this system can do, because a
+musician cannot distinguish it from success without checking every note -- the
+work the product exists to avoid.
+
+Two corrections are recorded in that module, both found by checking a result
+that looked good:
+
+* The measure originally asked whether the melody sat an octave or a fifth above
+  the bass. That is confounded -- a fiddle playing in its low register over a
+  root-position accompaniment genuinely does. It now asks whether the interval is
+  **locked**, since a real melody's interval to the bass varies as it moves.
+* It originally returned 0.0 when there was no trackable bass, which reads as
+  "no problem found". The synthetic corpus has no trackable bass at all, so a
+  control that never ran was reported as a clean pass. It now returns
+  "not assessed" and fails closed. **The threshold remains unvalidated on real
+  audio**, and is stated as a heuristic rather than a calibrated test.
 
 ## Validation by identification
 

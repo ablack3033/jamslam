@@ -318,9 +318,23 @@ def test_bass_coupling_detects_a_rigid_octave_above_the_bass():
     from fiddle.presence import _bass_coupling
 
     rng = np.random.default_rng(0)
-    bass = np.repeat(rng.choice([50.0, 55.0, 57.0], size=200), 20)
+    bass = np.repeat(rng.choice([50.0, 55.0, 57.0], size=300), 20)
     melody = bass + 12.0
     assert _bass_coupling(melody, bass) > 0.95
+
+
+def test_bass_coupling_returns_none_without_enough_data():
+    """It must fail CLOSED.
+
+    An earlier version returned 0.0 when there was no trackable bass, which
+    reads as "no problem found". That silently invalidated a control: the
+    synthetic corpus has no trackable bass at all, so a check that never ran
+    was reported as a clean pass.
+    """
+    from fiddle.presence import _bass_coupling
+
+    assert _bass_coupling(np.full(2000, 69.0), np.full(2000, np.nan)) is None
+    assert _bass_coupling(np.zeros(0), np.zeros(0)) is None
 
 
 def test_bass_coupling_stays_low_for_a_real_melody():
@@ -328,8 +342,26 @@ def test_bass_coupling_stays_low_for_a_real_melody():
     from fiddle.presence import _bass_coupling
 
     rng = np.random.default_rng(1)
-    bass = np.repeat(rng.choice([50.0, 55.0, 57.0], size=200), 20)
-    melody = np.repeat(rng.choice([74.0, 76.0, 78.0, 79.0, 81.0], size=800), 5)
+    bass = np.repeat(rng.choice([50.0, 55.0, 57.0], size=300), 20)
+    melody = np.repeat(rng.choice([74.0, 76.0, 78.0, 79.0, 81.0], size=1200), 5)
+    n = min(len(bass), len(melody))
+    assert _bass_coupling(melody[:n], bass[:n]) < 0.5
+
+
+def test_bass_coupling_is_not_fooled_by_a_low_register_melody():
+    """A fiddle playing low over a root-position bass often sits an octave above it.
+
+    That is harmony, not harmonics. What marks a harmonic is a *locked*
+    interval, so the measure keys on interval stability rather than on the
+    interval's value -- an earlier version keyed on the value and would have
+    condemned any melody played in the low octave.
+    """
+    from fiddle.presence import _bass_coupling
+
+    rng = np.random.default_rng(4)
+    bass = np.repeat(rng.choice([50.0, 55.0, 57.0], size=300), 20)
+    # Melody in the octave above the bass, but moving independently of it.
+    melody = np.repeat(rng.choice([62.0, 64.0, 66.0, 67.0, 69.0], size=1200), 5)
     n = min(len(bass), len(melody))
     assert _bass_coupling(melody[:n], bass[:n]) < 0.5
 
@@ -343,6 +375,7 @@ def test_presence_flags_a_drone():
                         bass_contour=_fake_contour(np.full(4000, np.nan)))
     assert not p.melody_found
     assert any("single pitch" in w for w in p.warnings)
+    assert p.bass_coupling is None  # no bass to compare against
 
 
 def test_presence_flags_a_static_range():

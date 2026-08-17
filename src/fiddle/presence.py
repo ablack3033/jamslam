@@ -44,7 +44,10 @@ class MelodyPresence:
     modal_pitch: int
     modal_pitch_share: float  # share of voiced time on the single commonest pitch
     pitch_iqr: float  # interquartile range, in semitones
-    bass_coupling: float  # share of frames sitting at a fixed interval above the bass
+    # Share of frames sitting at a fixed interval above the bass, or None when
+    # there was not enough simultaneously-voiced bass to judge. None means
+    # "not assessed" and must never be read as "passed".
+    bass_coupling: float | None
     verdict: str = ""
     warnings: list[str] = field(default_factory=list)
 
@@ -98,10 +101,10 @@ def diagnose_melody(
     coupling = _bass_coupling(midi, np.asarray(bass_contour.midi, dtype=float))
 
     warnings: list[str] = []
-    if coupling > 0.5:
+    if coupling is not None and coupling > 0.5:
         warnings.append(
-            f"{coupling:.0%} of the contour sits at a fixed interval above the "
-            f"bass register: this is most likely the accompaniment, not the fiddle"
+            f"{coupling:.0%} of the contour holds a single fixed interval to the "
+            f"bass: this is most likely the accompaniment, not the fiddle"
         )
     if modal_share > 0.45:
         warnings.append(
@@ -131,23 +134,37 @@ def diagnose_melody(
     )
 
 
-def _bass_coupling(melody: np.ndarray, bass: np.ndarray) -> float:
-    """Share of frames where the melody sits a fixed harmonic interval above the bass.
+#: Frames of simultaneous melody and bass needed before the measure means anything.
+_MIN_COUPLING_FRAMES = 500
 
-    A real melody wanders relative to the bass line; a harmonic of it does not.
+
+def _bass_coupling(melody: np.ndarray, bass: np.ndarray) -> float | None:
+    """How rigidly the melody tracks the bass, or None if it cannot be judged.
+
+    Returns the share of simultaneously-voiced frames whose melody-to-bass
+    interval equals the *most common* such interval. That formulation matters:
+    an earlier version asked whether the interval was an octave or a fifth, and
+    that is confounded, because a fiddle playing in its low register over a
+    root-position accompaniment genuinely sits an octave above the bass much of
+    the time without being its harmonic. What distinguishes a harmonic is that
+    the interval is **locked**; a real melody's interval to the bass varies as
+    the melody moves.
+
+    Returning None rather than 0.0 on insufficient data is deliberate. The
+    earlier version failed open: with no trackable bass it returned 0.0, which
+    reads as "no problem found", and that silently invalidated a control.
     """
     n = min(len(melody), len(bass))
     if n == 0:
-        return 0.0
+        return None
     m, b = melody[:n], bass[:n]
     both = ~np.isnan(m) & ~np.isnan(b)
-    if int(np.sum(both)) < 100:
-        return 0.0
-    diff = np.abs(m[both] - b[both])
-    locked = np.zeros(int(np.sum(both)), dtype=bool)
-    for interval in _HARMONIC_INTERVALS:
-        locked |= np.abs(diff - interval) < 0.6
-    return float(np.mean(locked))
+    if int(np.sum(both)) < _MIN_COUPLING_FRAMES:
+        return None
+    diff = m[both] - b[both]
+    values, counts = np.unique(np.round(diff), return_counts=True)
+    modal = float(values[int(np.argmax(counts))])
+    return float(np.mean(np.abs(diff - modal) < 0.6))
 
 
 def format_presence(p: MelodyPresence) -> str:
@@ -156,7 +173,10 @@ def format_presence(p: MelodyPresence) -> str:
         f"  voiced           {p.voiced_fraction:.0%} of frames",
         f"  commonest pitch  MIDI {p.modal_pitch} for {p.modal_pitch_share:.0%} of voiced time",
         f"  pitch spread     {p.pitch_iqr:.1f} semitones (interquartile)",
-        f"  bass coupling    {p.bass_coupling:.0%} locked to the bass register",
+        "  bass coupling    "
+        + (f"{p.bass_coupling:.0%} locked to the bass register"
+           if p.bass_coupling is not None
+           else "not assessed (no trackable bass to compare against)"),
     ]
     for w in p.warnings:
         lines.append(f"  WARNING: {w}")

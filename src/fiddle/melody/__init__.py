@@ -35,6 +35,10 @@ def get_extractor(name: str, config: MelodyConfig | None = None) -> MelodyExtrac
         from .essentia_backend import EssentiaMelodyExtractor
 
         return EssentiaMelodyExtractor(config)
+    if key == "fiddle":
+        from .fiddle_backend import FiddleMelodyExtractor
+
+        return FiddleMelodyExtractor(config)
     if key == "pyin":
         from .pyin_backend import PyinMelodyExtractor
 

@@ -182,12 +182,18 @@ _OPEN_STRINGS = (55, 62, 69, 76)
 
 def render_tune(
     tune: TuneDefinition,
-    difficulty: str = "jam",
+    difficulty: str | Difficulty = "jam",
     sample_rate: int = 44100,
     seed: int = 0,
 ) -> tuple[Audio, GroundTruth]:
-    """Render one performance of ``tune`` and return audio plus ground truth."""
-    diff = DIFFICULTIES[difficulty]
+    """Render one performance of ``tune`` and return audio plus ground truth.
+
+    ``difficulty`` accepts a :class:`Difficulty` directly as well as a preset
+    name, so tests can construct conditions the presets do not cover -- notably
+    a loud sustained bass, which the presets deliberately keep quiet and which
+    is needed to validate the accompaniment-tracking check.
+    """
+    diff = DIFFICULTIES[difficulty] if isinstance(difficulty, str) else difficulty
     rng = np.random.default_rng(seed)
     sections = parse_abc_sections(tune.abc)
     beats_per_bar = beats_per_bar_from_header(tune.abc.splitlines())
@@ -310,7 +316,7 @@ def render_tune(
         tempo_bpm=tune.tempo_bpm,
         sections=tuple(sections[k] for k in sorted(sections)),
         performance=tuple(performed),
-        difficulty=difficulty,
+        difficulty=diff.name,
     )
     return Audio(samples=total, sample_rate=sample_rate,
                  source_path=f"synth:{tune.slug}:{difficulty}"), truth

@@ -26,6 +26,7 @@ from .key import KeyAnalysis, infer_key
 from .melody import get_extractor
 from .meter import MeterAnalysis, infer_meter
 from .pitch_clean import clean_contour
+from .repetition import contour_on_beat_grid, repetition_score
 from .rhythm import RhythmAnalysis, analyze_rhythm, quantize_notes
 from .segment import segment_notes
 
@@ -102,7 +103,26 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
     # 6. Form: which stretches are repeats of the same section. This also
     #    returns the offset of the first section boundary, which is a downbeat
     #    by definition and therefore the strongest phase evidence we have.
-    form = analyze_form(timed, meter_analysis.beats_per_bar, cfg.form)
+    # Cluster on the pitch contour rather than the segmented notes. On real
+    # recordings the contour repeats measurably while the notes derived from it
+    # do not -- segmentation and quantization destroy the structure.
+    contour_grid = contour_on_beat_grid(cleaned, rhythm.beat_times)
+    rep = repetition_score(cleaned)
+    # Convert the measured repetition period from seconds into beats, and only
+    # trust it when the peak actually stands out from the baseline.
+    period_beats = None
+    if rep.excess > 0.05 and rhythm.tempo_bpm > 0:
+        raw_period = rep.peak_lag_sec * rhythm.tempo_bpm / 60.0
+        if abs(raw_period - round(raw_period)) < 0.25:
+            period_beats = float(round(raw_period))
+    form = analyze_form(timed, meter_analysis.beats_per_bar, cfg.form,
+                        contour_grid=contour_grid if len(contour_grid) else None,
+                        period_beats=period_beats)
+    log.append(
+        f"repetition: peak {rep.peak_similarity:.3f} at {rep.peak_lag_sec:.1f}s "
+        f"(baseline {rep.baseline_similarity:.3f}, excess {rep.excess:.3f})"
+        + (f" -> period {period_beats:g} beats" if period_beats else " -> no usable period")
+    )
     log.extend(f"form: {n}" for n in form.notes)
 
     if form.sections:

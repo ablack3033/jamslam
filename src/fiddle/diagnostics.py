@@ -203,7 +203,7 @@ def plot_diagnostics(result: TranscriptionResult, path: str | Path,
     ax = axes[3]
     sim = result.form.similarity_matrix
     if sim.size:
-        im = ax.imshow(sim, cmap="magma", vmin=0, vmax=1)
+        im = ax.imshow(sim, cmap="magma", vmin=0, vmax=1, aspect="auto")
         fig.colorbar(im, ax=ax, fraction=0.025)
         labels = [s.label for s in result.form.sections]
         ax.set_xticks(range(len(labels)))

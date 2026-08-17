@@ -15,3 +15,4 @@ datasets/tunes/*/recording.*
 *.pitch.csv
 *.notes.json
 *.diagnostics.png
+reports/*.err

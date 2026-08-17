@@ -113,6 +113,9 @@ def _cmd_transcribe(args) -> int:
 
     cfg = _config_from_args(args)
     result = transcribe_file(args.audio, cfg)
+    # The filename is the only tune name we have; a jam recording is usually
+    # named after the tune, and an approximate title beats "Untitled" on a score.
+    result.tune.title = args.audio.stem.replace("_", " ").replace("-", " ").title()
 
     outdir = args.outdir or args.audio.parent
     stem = outdir / args.audio.stem

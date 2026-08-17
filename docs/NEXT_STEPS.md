@@ -174,6 +174,65 @@ the strongest argument for doing it first.
 
 ---
 
+## Why form detection fails on three of the five recordings
+
+Form succeeds on `bebop_2` and `bebop_5` and fails on `bebop_1`, `bebop_4` and
+`memory_of_home`. It is not a form-detection bug. The extracted line on those
+three does not contain distinguishable sections, and the evidence says so from
+three independent directions.
+
+**1. Everything above the quality floor is an artifact.** Searching section
+lengths without the period constraint, the best cluster quality on each failing
+recording occurs at a length *incommensurate with its own measured period* — 44
+beats against a 16-beat period, 38 against 32, 28 against 48 — and every one of
+them labels the blocks `ABABABAB…`. That is the phase-rotation artifact
+documented above, not structure. At lengths that *are* commensurate, quality is
+0.02–0.04 against a floor of 0.08.
+
+This matters because form can be made to "succeed" on all three by lowering the
+floor one line. It would emit `ABABABAB` at 44 beats for `bebop_1`. That is
+manufacturing form, not finding it.
+
+**2. Time tolerance does not help.** The note-based `slot_similarity` gained a
+±1 slot tolerance long ago and it roughly doubled same-versus-different
+separation, but the contour path — which is what actually runs — never got it.
+Adding it changes cluster quality from 0.089 to 0.091. Not the problem.
+
+**3. The lines are too pitch-concentrated for sections to differ.** Share of the
+contour within one semitone of its own median, and the interquartile range:
+
+| recording | within ±1 semitone | IQR | form |
+|---|---|---|---|
+| bebop_2 | **24%** | **12.0** | AABBC ✓ |
+| bebop_5 | 34% | 5.1 | AABC ✓ |
+| bebop_4 | 31% | 7.0 | fails |
+| bebop_1 | **39%** | **4.0** | fails |
+| memory_of_home | **42%** | 7.3 | fails |
+
+`bebop_1` has half its line inside a four-semitone band. A fiddle tune spans an
+octave or more. Per-block median pitch on that recording reads
+`69 69 69 69 69 69 69 69 69 69 70 69…` across thirty-nine consecutive blocks;
+on `bebop_2`, which works, it reads `69 76 64 64 70 76 67 67…`.
+
+That last table also rules out the obvious domain fix. Old-time players call the
+two parts the low part and the high part, so section register is real evidence
+and it is independent of frame-wise similarity — but it needs register variation
+to exist, and on the failing recordings there is almost none to read.
+
+**Conclusion: this is the melody-extraction problem one level down, not a
+separate one.** Form detection is already extracting everything that is there.
+
+### Fixed on the way
+
+The repetition period's integer tolerance was absolute (0.25 beats) rather than
+relative. A measured 48.4-beat period is 0.8% from a whole number and was being
+discarded, which dropped the tune's own period and sent form detection into an
+unconstrained scan — the exact condition that produces artifacts. The tolerance
+now scales with the period. `memory_of_home` keeps its 48-beat period; its form
+still fails, for the reasons above.
+
+---
+
 ## Tried and rejected: following one voice
 
 Lowering the threshold left the extracted line spread across *more* pitch

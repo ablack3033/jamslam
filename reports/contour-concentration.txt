@@ -1,0 +1,8 @@
+recording         median  within +/-1  within +/-2    IQR  form?
+bebop_2             69.0         24%         31%   12.0  AABBC
+bebop_5             69.0         34%         43%    5.1  AABC
+bebop_1             69.0         39%         55%    4.0  FAILS
+bebop_4             69.6         31%         36%    7.0  FAILS
+memory_of_home      69.0         42%         44%    7.3  FAILS
+
+[exited with code 0]

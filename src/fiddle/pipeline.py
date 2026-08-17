@@ -129,7 +129,14 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
     period_beats = None
     if rep.excess > 0.05 and rhythm.tempo_bpm > 0:
         raw_period = rep.peak_lag_sec * rhythm.tempo_bpm / 60.0
-        if abs(raw_period - round(raw_period)) < 0.25:
+        # The tolerance has to scale with the period. An absolute quarter-beat
+        # window is far too tight at the long end: a measured 48.4-beat period
+        # is 0.8% from a whole number and was being thrown away, which dropped
+        # the tune's own period and sent form detection into an unconstrained
+        # scan. The lag curve's error grows with the lag, so the window should
+        # too.
+        tolerance = max(0.25, 0.02 * raw_period)
+        if abs(raw_period - round(raw_period)) < tolerance:
             period_beats = float(round(raw_period))
     # An explicit meter override constrains the barring form may choose; without
     # one, form searches both barrings and settles the meter itself.

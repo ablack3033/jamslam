@@ -1,0 +1,23 @@
+
+===== bebop_1  (period ~16.1 beats, 628 beats total)
+  variant                 best q  at len  offset  labels
+  plain (current)          0.089      44       6  ABABABABABBBAB
+  time tol +/-1            0.090      44       6  ABABABABABBBAB
+  time tol +/-2            0.091      44       1  ABABABABABBBAB
+  time tol +/-4            0.089      44       2  ABABABABABBBAB
+
+===== bebop_4  (period ~32.1 beats, 484 beats total)
+  variant                 best q  at len  offset  labels
+  plain (current)          0.184      38       7  ABABABABABAB
+  time tol +/-1            0.178      38       6  ABCBABCBCBAB
+  time tol +/-2            0.171      38       6  ABABABABABAB
+  time tol +/-4            0.168      24       3  AABAABBBABBBAABAABBC
+
+===== memory_of_home  (period ~48.4 beats, 452 beats total)
+  variant                 best q  at len  offset  labels
+  plain (current)          0.115      28       4  AAAAABAACCABABAB
+  time tol +/-1            0.123      28       0  ABBBAAAAABABAAAC
+  time tol +/-2            0.138      28       4  ABAAAAAABBAAABAC
+  time tol +/-4            0.127      28       4  ABAAAAAABBAAABAC
+
+[exited with code 0]

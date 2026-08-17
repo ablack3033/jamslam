@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Generated corpus audio and transcription artifacts
+datasets/synth/
+datasets/tunes/*/recording.*
+*.wav
+*.mid
+*.musicxml
+*.pitch.csv
+*.notes.json
+*.diagnostics.png

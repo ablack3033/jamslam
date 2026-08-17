@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jamslam"
+version = "0.1.0"
+description = "Infer the canonical fiddle melody from old-time jam recordings"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "librosa>=0.10",
+    "music21>=9",
+    "pydantic>=2",
+]
+
+[project.optional-dependencies]
+# Essentia is the default melody-extraction backend but the pipeline runs
+# without it (falls back to the librosa pYIN backend), so it is an extra.
+essentia = ["essentia>=2.1b6.dev1034"]
+plots = ["matplotlib>=3.7"]
+dev = ["pytest>=7", "matplotlib>=3.7"]
+
+[project.scripts]
+fiddle-transcribe = "fiddle.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

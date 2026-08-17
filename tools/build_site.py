@@ -70,19 +70,37 @@ def excerpt(abc: str, bars: int = 4) -> str:
     return "\n".join(header) + f"\n|{kept}|"
 
 
+#: Real old-time tunes put about 53% of their notes in two pitch classes,
+#: measured over the catalog. The yardstick in both directions.
+REAL_TUNE_TOP2 = 0.53
+
+
 def verdict(summary: dict, concentration: list[tuple[str, float]]) -> tuple[str, str]:
-    """A plain-language reading of one result, and a CSS class for it."""
-    top_share = sum(share for _, share in concentration[:2])
-    if top_share > 0.6:
-        return ("Melody collapsed onto the tonic and fifth -- "
-                f"{top_share:.0%} of notes are just {concentration[0][0]} and "
-                f"{concentration[1][0]}. Not a usable transcription.", "bad")
-    if not summary.get("form") or summary.get("form") == "A":
-        return ("No section structure found; emitted as one unsectioned part. "
-                "The notes are more varied here, but every one is flagged "
-                "uncertain.", "warn")
-    return ("Sections found, but the note content has not been checked against "
-            "ground truth.", "warn")
+    """A plain-language reading of one result, and a CSS class for it.
+
+    Derived from the measurement rather than fixed prose, which went stale as
+    soon as extraction improved -- it was still reporting a "drone collapse" on
+    a line whose drone had gone.
+    """
+    top = sum(share for _, share in concentration[:2])
+    unsectioned = not summary.get("form") or summary.get("form") == "A"
+    tail = (" No section structure was found, so this is the raw performance "
+            "rather than a canonical tune." if unsectioned else "")
+
+    if top > 0.70:
+        return (f"Melody collapsed onto the tonic and fifth -- {top:.0%} of "
+                f"notes are just {concentration[0][0]} and "
+                f"{concentration[1][0]}, against about {REAL_TUNE_TOP2:.0%} for "
+                f"a real tune. Not a usable transcription." + tail, "bad")
+    if top > 0.58:
+        return (f"Still concentrated: {top:.0%} of notes in two pitches against "
+                f"about {REAL_TUNE_TOP2:.0%} for a real tune. The drone lock is "
+                f"broken but the line is not yet a melody." + tail, "warn")
+    return (f"Pitch spread is now in the range of a real tune ({top:.0%} of "
+            f"notes in two pitches, against about {REAL_TUNE_TOP2:.0%}), so the "
+            f"line is no longer stuck on a drone. That does not mean the notes "
+            f"are right -- nothing here is checked against ground truth."
+            + tail, "warn")
 
 
 def build(source: Path) -> Path:

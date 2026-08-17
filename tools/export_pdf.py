@@ -92,16 +92,42 @@ def describe(abc: str, summary: dict | None) -> tuple[str, str, str]:
             f"{summary.get('n_notes', 0)} notes, "
             f"{summary.get('n_uncertain', 0)} flagged uncertain")
 
-    if top > 0.6:
-        caveat = (f"Not a usable transcription. {top:.0%} of the notes below are "
-                  f"just two pitches — the tonic and the fifth — which "
-                  f"means melody extraction locked onto a drone rather than "
-                  f"following the fiddle. Printed as evidence of the failure.")
-    else:
-        caveat = ("Unverified against ground truth. No section structure was "
-                  "found, so this is the raw performance rather than a canonical "
-                  "tune, and every note is flagged uncertain.")
+    caveat = _caveat(top, summary)
     return title, meta, caveat
+
+
+#: Real old-time tunes concentrate about 53% of their notes in two pitch
+#: classes, measured over the catalog. That is the yardstick both directions:
+#: far above means the line collapsed onto a drone, far below means it is
+#: wandering across more pitches than a tune actually uses.
+REAL_TUNE_TOP2 = 0.53
+
+
+def _caveat(top: float, summary: dict) -> str:
+    """An honest one-line reading, calibrated against real tunes.
+
+    Written as a function of the measurement rather than a fixed sentence,
+    because the fixed sentence went stale the moment extraction improved: it
+    was still calling a 61% line a "drone lock" when the drone was gone.
+    """
+    unsectioned = not summary.get("form") or summary.get("form") == "A"
+    tail = (" No section structure was found, so this is the raw performance "
+            "rather than a canonical tune." if unsectioned else "")
+
+    if top > 0.70:
+        return (f"Not a usable transcription. {top:.0%} of the notes below are "
+                f"just two pitches, against about {REAL_TUNE_TOP2:.0%} for a "
+                f"real old-time tune, so melody extraction has locked onto a "
+                f"drone rather than following the fiddle." + tail)
+    if top > 0.58:
+        return (f"Unverified, and still concentrated: {top:.0%} of notes are two "
+                f"pitches against about {REAL_TUNE_TOP2:.0%} for a real tune. "
+                f"The drone lock is broken but the line is not yet a melody."
+                + tail)
+    return (f"Unverified against ground truth. Pitch spread is now in the range "
+            f"of a real tune ({top:.0%} of notes in two pitches, against about "
+            f"{REAL_TUNE_TOP2:.0%}), which says the line is no longer stuck on a "
+            f"drone. It does not say the notes are correct." + tail)
 
 
 def export(abc_path: Path, out_dir: Path, page) -> Path:

@@ -1,0 +1,92 @@
+[bebop_1] key           A major  (confidence 0.51)
+[bebop_1] meter         4/4  (confidence 0.42)
+[bebop_1] tempo         112.3 BPM
+[bebop_1] form          A  (0 bars/section, confidence 0.00)
+[bebop_1] notes         1478 canonical, 1478 flagged uncertain
+[bebop_1] melody        basicpitch backend, 97% of frames voiced
+[bebop_1] 
+[bebop_1] least confident notes:
+[bebop_1]   beat  538.75  D6   14%
+[bebop_1]   beat  491.00  D5   14%
+[bebop_1]   beat  241.25  C#5  14%
+[bebop_1]   beat  282.75  D5   14%
+[bebop_1]   beat  610.00  A#6  15%
+[bebop_1]   beat  610.25  F#4  15%
+[bebop_1]   beat  110.50  D5   15%
+[bebop_1]   beat  155.00  A4   15%
+[bebop_1] 
+[bebop_1] wrote: bebop_1.pitch.csv, bebop_1.notes.json, bebop_1.musicxml, bebop_1.mid, bebop_1.abc, bebop_1.diagnostics.png
+[bebop_2] key           E dorian  (confidence 0.47)
+[bebop_2] meter         4/4  (confidence 0.42)
+[bebop_2] tempo         123.0 BPM
+[bebop_2] form          AABBC  (8 bars/section, crooked, confidence 0.33)
+[bebop_2] notes         239 canonical, 187 flagged uncertain
+[bebop_2] melody        basicpitch backend, 93% of frames voiced
+[bebop_2] 
+[bebop_2] least confident notes:
+[bebop_2]   beat    1.75  A4   43%   alternatives: E4 38%
+[bebop_2]   beat    2.25  A4   43%   alternatives: E4 38%, C5 21%
+[bebop_2]   beat   31.50  E5   44%   alternatives: G5 21%, A4 21%
+[bebop_2]   beat   28.00  E5   44%   alternatives: A4 39%
+[bebop_2]   beat   15.25  A4   45%   alternatives: E5 39%, G5 21%
+[bebop_2]   beat   31.25  G5   45%   alternatives: A4 21%, D5 20%
+[bebop_2]   beat   30.75  A4   45%   alternatives: E5 38%, G5 21%
+[bebop_2]   beat   31.00  G5   45%   alternatives: A4 21%, E5 20%
+[bebop_2] 
+[bebop_2] wrote: bebop_2.pitch.csv, bebop_2.notes.json, bebop_2.musicxml, bebop_2.mid, bebop_2.abc, bebop_2.diagnostics.png
+[bebop_4] key           A mixolydian  (confidence 0.58)
+[bebop_4] meter         4/4  (confidence 0.56)
+[bebop_4] tempo         123.0 BPM
+[bebop_4] form          A  (0 bars/section, confidence 0.00)
+[bebop_4] notes         1246 canonical, 1246 flagged uncertain
+[bebop_4] melody        basicpitch backend, 98% of frames voiced
+[bebop_4] 
+[bebop_4] least confident notes:
+[bebop_4]   beat  477.25  E4   13%
+[bebop_4]   beat  480.50  G#5  14%
+[bebop_4]   beat  474.50  F5   16%
+[bebop_4]   beat  234.75  F#5  16%
+[bebop_4]   beat  480.00  F6   16%
+[bebop_4]   beat  317.50  B4   16%
+[bebop_4]   beat  102.50  G4   16%
+[bebop_4]   beat  331.25  E5   17%
+[bebop_4] 
+[bebop_4] wrote: bebop_4.pitch.csv, bebop_4.notes.json, bebop_4.musicxml, bebop_4.mid, bebop_4.abc, bebop_4.diagnostics.png
+[bebop_5] key           A major  (confidence 0.82)
+[bebop_5] meter         4/4  (confidence 0.26)
+[bebop_5] tempo         123.0 BPM
+[bebop_5] form          AABC  (12 bars/section, confidence 0.18)
+[bebop_5] notes         328 canonical, 273 flagged uncertain
+[bebop_5] melody        basicpitch backend, 90% of frames voiced
+[bebop_5] 
+[bebop_5] least confident notes:
+[bebop_5]   beat   20.25  G#4  30%   alternatives: A4 34%, E4 31%
+[bebop_5]   beat   41.25  A4   31%   alternatives: D5 34%, E4 31%
+[bebop_5]   beat   38.75  D5   31%   alternatives: E4 34%, B4 31%
+[bebop_5]   beat   38.25  A4   32%   alternatives: C#5 34%, E4 31%
+[bebop_5]   beat   20.00  A#4  32%   alternatives: A4 34%, E4 31%
+[bebop_5]   beat   15.00  A4   33%   alternatives: E5 34%, F#5 31%
+[bebop_5]   beat   41.00  A4   33%   alternatives: D5 34%, E4 31%
+[bebop_5]   beat   16.25  A4   33%   alternatives: D5 34%, C#5 31%
+[bebop_5] 
+[bebop_5] wrote: bebop_5.pitch.csv, bebop_5.notes.json, bebop_5.musicxml, bebop_5.mid, bebop_5.abc, bebop_5.diagnostics.png
+[memory_of_home] key           A major  (confidence 0.57)
+[memory_of_home] meter         4/4  (confidence 0.37)
+[memory_of_home] tempo         103.4 BPM
+[memory_of_home] form          A  (0 bars/section, confidence 0.00)
+[memory_of_home] notes         1271 canonical, 1271 flagged uncertain
+[memory_of_home] melody        basicpitch backend, 98% of frames voiced
+[memory_of_home] 
+[memory_of_home] least confident notes:
+[memory_of_home]   beat  448.50  A4   11%
+[memory_of_home]   beat  440.50  G4   13%
+[memory_of_home]   beat  445.75  D#5  14%
+[memory_of_home]   beat  437.75  A#4  14%
+[memory_of_home]   beat  448.75  A#4  15%
+[memory_of_home]   beat  440.75  G4   15%
+[memory_of_home]   beat  442.50  F#6  15%
+[memory_of_home]   beat  446.25  G#4  15%
+[memory_of_home] 
+[memory_of_home] wrote: memory_of_home.pitch.csv, memory_of_home.notes.json, memory_of_home.musicxml, memory_of_home.mid, memory_of_home.abc, memory_of_home.diagnostics.png
+
+[exited with code 0]

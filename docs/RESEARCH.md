@@ -30,7 +30,8 @@ Everything below is measured on `bebop_1`, 5m36s of real jam audio.
 | Melodia + sustain mask | 0.41 | 35.0% | 53.0% | 0.248 |
 | frame-level Viterbi | 0.97 | 11.1% | 8.7% | 0.041 |
 | contour-level DP | 0.53 | 39.7% | 24.4% | 0.173 |
-| **Basic Pitch, floor D4, loudest** | **0.51** | 40.4% | **26.3%** | **0.295** |
+| Basic Pitch + sustain mask | 0.38 | 40.0% | 28.3% | 0.284 |
+| **Basic Pitch, floor D4, loudest** | **0.52** | 40.7% | **26.5%** | **0.286** |
 
 Basic Pitch is the first approach that improves bass independence **without**
 sacrificing repetition — it more than halves locking while nudging REP up. Every
@@ -151,15 +152,18 @@ measurement, and it makes the whole regression corpus real.
 ```
 iPhone recording
       │
-      ├─ sustain mask ......... emphasise the bowed source (free, no model)
-      │
       ├─ Basic Pitch .......... discrete note events for every voice
+      │                         (NOT preceded by the sustain mask -- measured
+      │                          worse; they are substitutes, see above)
       │
-      ├─ melody selection ..... register floor + loudest voice
+      ├─ melody selection ..... register floor D4 + loudest voice
       │                         (+ diatonic prior from chroma; untested)
       │
       └─ existing pipeline .... rhythm → form → consensus → MusicXML
 ```
+
+The sustain mask stays on the Melodia path, which remains the no-extra-install
+default and where the mask does earn its place.
 
 The downstream pipeline is unchanged and already consumes note events, so this
 slots in behind the existing `MelodyExtractor` interface without touching

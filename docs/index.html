@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JamSlam &mdash; status</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127925;</text></svg>">
+<!-- abcjs is vendored rather than loaded from a CDN: the page then has no
+     external dependencies, so it renders identically offline and cannot break
+     when someone else's CDN does. MIT licensed, see vendor/abcjs-LICENSE.md. -->
+<script src="vendor/abcjs-basic-min.js"></script>
+<style>
+  :root {
+    --bg: #fbfaf8; --fg: #1c1a17; --muted: #6b655c; --line: #e0dcd4;
+    --card: #ffffff; --bad: #b3261e; --bad-bg: #fdecea;
+    --warn: #8a5a00; --warn-bg: #fdf3e0; --ok: #1e6b3a; --ok-bg: #e9f5ed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16150f; --fg: #ece8e0; --muted: #9c968b; --line: #33302a;
+      --card: #1e1c16; --bad: #f2b8b5; --bad-bg: #3a1512;
+      --warn: #f0c070; --warn-bg: #3a2c10; --ok: #9fd8b3; --ok-bg: #12301d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); margin: 0 0 .3rem; letter-spacing: -.02em; }
+  h2 { font-size: 1.35rem; margin: 3rem 0 1rem; letter-spacing: -.01em; }
+  h3 { font-size: 1.1rem; margin: 0 0 .4rem; }
+  .lede { color: var(--muted); font-size: 1.05rem; max-width: 44rem; }
+  .banner {
+    margin: 1.75rem 0; padding: 1rem 1.15rem; border-radius: .6rem;
+    background: var(--bad-bg); color: var(--bad);
+    border: 1px solid color-mix(in srgb, var(--bad) 25%, transparent);
+  }
+  .banner strong { display: block; font-size: 1.05rem; }
+  .banner p { margin: .4rem 0 0; color: inherit; opacity: .9; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  .scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; color: var(--muted); font-size: .82rem;
+        text-transform: uppercase; letter-spacing: .04em; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  pre { background: var(--card); border: 1px solid var(--line); border-radius: .5rem;
+         padding: .9rem 1rem; overflow-x: auto; font-size: .85rem; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: .7rem;
+    padding: 1.25rem 1.35rem; margin: 1.1rem 0;
+  }
+  .verdict { margin: 0; padding: .5rem .7rem; border-radius: .4rem; font-size: .92rem; }
+  .verdict.bad { background: var(--bad-bg); color: var(--bad); }
+  .verdict.warn { background: var(--warn-bg); color: var(--warn); }
+  .verdict.ok { background: var(--ok-bg); color: var(--ok); }
+  .facts { display: grid; gap: .1rem .9rem; margin: 1rem 0;
+            grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+  .facts div { display: flex; gap: .4rem; border-bottom: 1px solid var(--line);
+                padding: .3rem 0; font-size: .88rem; }
+  .facts dt { color: var(--muted); min-width: 5.5rem; }
+  .facts dd { margin: 0; font-weight: 500; }
+  .score { overflow-x: auto; margin: .5rem 0; }
+  .score svg { max-width: 100%; }
+  audio { width: 100%; margin: .5rem 0; }
+  .downloads { font-size: .88rem; color: var(--muted); }
+  a { color: inherit; }
+  details { margin-top: .6rem; font-size: .9rem; color: var(--muted); }
+  details img { max-width: 100%; margin-top: .7rem; border: 1px solid var(--line);
+                 border-radius: .4rem; }
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+            color: var(--muted); font-size: .88rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>JamSlam</h1>
+<p class="lede">Turning noisy iPhone recordings of old-time fiddle jams into sheet
+music containing only the fiddle melody. This page reports what the pipeline
+actually produces today, generated from real runs.</p>
+
+<div class="banner">
+  <strong>Status: not working end to end.</strong>
+  <p>The pipeline runs, exports valid MusicXML, MIDI and ABC, and passes its
+  tests. The <em>musical content is wrong</em>: on most recordings the extracted
+  line collapses onto the tonic and fifth instead of following the fiddle. The
+  scores below are shown as evidence of that, not as results.</p>
+</div>
+
+<h2>What it does</h2>
+<pre>audio -&gt; melody extraction (Basic Pitch, register floor D4, loudest voice)
+      -&gt; pitch cleaning -&gt; note segmentation
+      -&gt; beat tracking -&gt; quantization
+      -&gt; form detection (which stretches repeat) -&gt; consensus across repeats
+      -&gt; MusicXML + MIDI + ABC</pre>
+<p>The bet is <strong>consensus</strong>: a jam plays each part many times, those
+passes are independent noisy measurements of one melody, so voting across them
+should beat any single pass. That bet is not yet testable, because the melody
+going into it is not the fiddle.</p>
+
+<h2>The five real recordings</h2>
+
+<article class="card">
+  <header>
+    <h3>Memory Of Home</h3>
+    <p class="verdict bad">Melody collapsed onto the tonic and fifth -- 78% of notes are just A and e. Not a usable transcription.</p>
+  </header>
+  <dl class="facts">
+    <div><dt>key</dt><dd>A major</dd></div>
+    <div><dt>meter</dt><dd>4/4</dd></div>
+    <div><dt>tempo</dt><dd>103 BPM</dd></div>
+    <div><dt>form</dt><dd>AABBC (6 bars/section)</dd></div>
+    <div><dt>notes</dt><dd>227, 193 uncertain</dd></div>
+    <div><dt>voiced</dt><dd>77% of frames</dd></div>
+    <div><dt>top pitches</dt><dd>A 48%, e 29%, E 17%</dd></div>
+  </dl>
+  <audio controls preload="none" src="results/memory_of_home.m4a"></audio>
+  <div class="score" data-abc="X:1
+T:Memory Of Home
+M:4/4
+L:1/8
+Q:1/4=103
+K:A
+|A/2 A/2 E/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2 A/2|A/2 A/2 E/2 E/2 E/2 E/2 A/2 A/2 E/2 E/2 A/2 A/2 A/2 A/2 E/2 E/2|A/2 A/2 A/2 A/2 E/2 E/2 A/2 A/2 A/2 A/2 E/2 E/2 E/2 e/2 e/2 e/2|e/2 e/2 e/2 e/2 e/2 e/2 e/2 e/2 e/2 A/2 A/2 A/2 e/2 e/2 e/2 e/2|"></div>
+  <p class="downloads">Full output: <a href="results/memory_of_home.abc">abc</a> &middot; <a href="results/memory_of_home.musicxml">musicxml</a> &middot; <a href="results/memory_of_home.mid">mid</a></p>
+  <details><summary>Diagnostic plots</summary><img loading="lazy" alt="diagnostic plots for memory_of_home" src="results/memory_of_home.diagnostics.png"></details>
+</article>
+
+
+<article class="card">
+  <header>
+    <h3>Bebop 1</h3>
+    <p class="verdict warn">No section structure found; emitted as one unsectioned part. The notes are more varied here, but every one is flagged uncertain.</p>
+  </header>
+  <dl class="facts">
+    <div><dt>key</dt><dd>A major</dd></div>
+    <div><dt>meter</dt><dd>4/4</dd></div>
+    <div><dt>tempo</dt><dd>112 BPM</dd></div>
+    <div><dt>form</dt><dd>A (0 bars/section)</dd></div>
+    <div><dt>notes</dt><dd>692, 691 uncertain</dd></div>
+    <div><dt>voiced</dt><dd>52% of frames</dd></div>
+    <div><dt>top pitches</dt><dd>A 39%, F 18%, B 15%</dd></div>
+  </dl>
+  
+  <div class="score" data-abc="X:1
+T:Bebop 1
+M:4/4
+L:1/8
+Q:1/4=112
+K:A
+|f/2 e/2 A/2 A e2 B B3/2 A|e/2 e/2 ^d/2 f/2 =f/2 e/2 e/2 A/2 f/2 f/2 A/2 A f z/2|A/2 B e f/2 e3/2 d/2 d d A/2 A|f3/2 A f/2 e3/2 A f/2 f3/2 z/2|"></div>
+  <p class="downloads">Full output: <a href="results/bebop_1.abc">abc</a> &middot; <a href="results/bebop_1.musicxml">musicxml</a> &middot; <a href="results/bebop_1.mid">mid</a></p>
+  <details><summary>Diagnostic plots</summary><img loading="lazy" alt="diagnostic plots for bebop_1" src="results/bebop_1.diagnostics.png"></details>
+</article>
+
+
+<article class="card">
+  <header>
+    <h3>Bebop 2</h3>
+    <p class="verdict bad">Melody collapsed onto the tonic and fifth -- 80% of notes are just E and e. Not a usable transcription.</p>
+  </header>
+  <dl class="facts">
+    <div><dt>key</dt><dd>E dorian</dd></div>
+    <div><dt>meter</dt><dd>4/4</dd></div>
+    <div><dt>tempo</dt><dd>123 BPM</dd></div>
+    <div><dt>form</dt><dd>AABC (8 bars/section)</dd></div>
+    <div><dt>notes</dt><dd>157, 117 uncertain</dd></div>
+    <div><dt>voiced</dt><dd>58% of frames</dd></div>
+    <div><dt>top pitches</dt><dd>E 59%, e 21%, A 12%</dd></div>
+  </dl>
+  
+  <div class="score" data-abc="X:1
+T:Bebop 2
+M:4/4
+L:1/8
+Q:1/4=123
+K:Edor
+|E/2 E/2 E E/2 E/2 E/2 E/2 E/2 E/2 z3|E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2|E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2|E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2 E/2|"></div>
+  <p class="downloads">Full output: <a href="results/bebop_2.abc">abc</a> &middot; <a href="results/bebop_2.musicxml">musicxml</a> &middot; <a href="results/bebop_2.mid">mid</a></p>
+  <details><summary>Diagnostic plots</summary><img loading="lazy" alt="diagnostic plots for bebop_2" src="results/bebop_2.diagnostics.png"></details>
+</article>
+
+
+<article class="card">
+  <header>
+    <h3>Bebop 4</h3>
+    <p class="verdict warn">No section structure found; emitted as one unsectioned part. The notes are more varied here, but every one is flagged uncertain.</p>
+  </header>
+  <dl class="facts">
+    <div><dt>key</dt><dd>A mixolydian</dd></div>
+    <div><dt>meter</dt><dd>4/4</dd></div>
+    <div><dt>tempo</dt><dd>123 BPM</dd></div>
+    <div><dt>form</dt><dd>A (0 bars/section)</dd></div>
+    <div><dt>notes</dt><dd>802, 802 uncertain</dd></div>
+    <div><dt>voiced</dt><dd>65% of frames</dd></div>
+    <div><dt>top pitches</dt><dd>A 32%, e 21%, E 17%</dd></div>
+  </dl>
+  
+  <div class="score" data-abc="X:1
+T:Bebop 4
+M:4/4
+L:1/8
+Q:1/4=123
+K:Amix
+|^A/2 A/2 B/2 A/2 E/2 E/2 A e2 e3/2 c/2|A2 E e/2 A/2 f/2 f d e2|B2 A e/2 e/2 f d e z|c/2 B/2 ^A/2 A/2 A E A/2 A/2 g2 e2|"></div>
+  <p class="downloads">Full output: <a href="results/bebop_4.abc">abc</a> &middot; <a href="results/bebop_4.musicxml">musicxml</a> &middot; <a href="results/bebop_4.mid">mid</a></p>
+  <details><summary>Diagnostic plots</summary><img loading="lazy" alt="diagnostic plots for bebop_4" src="results/bebop_4.diagnostics.png"></details>
+</article>
+
+
+<article class="card">
+  <header>
+    <h3>Bebop 5</h3>
+    <p class="verdict warn">No section structure found; emitted as one unsectioned part. The notes are more varied here, but every one is flagged uncertain.</p>
+  </header>
+  <dl class="facts">
+    <div><dt>key</dt><dd>A major</dd></div>
+    <div><dt>meter</dt><dd>4/4</dd></div>
+    <div><dt>tempo</dt><dd>123 BPM</dd></div>
+    <div><dt>form</dt><dd>A (0 bars/section)</dd></div>
+    <div><dt>notes</dt><dd>1024, 1024 uncertain</dd></div>
+    <div><dt>voiced</dt><dd>53% of frames</dd></div>
+    <div><dt>top pitches</dt><dd>A 32%, E 20%, e 14%</dd></div>
+  </dl>
+  
+  <div class="score" data-abc="X:1
+T:Bebop 5
+M:4/4
+L:1/8
+Q:1/4=123
+K:A
+|E A/2 A B E3/2 E2 e|e2 A A E E E2|E2 B3/2 A/2 d/2 d A2 z/2|c B G/2 ^A/2 A2 E2 E|"></div>
+  <p class="downloads">Full output: <a href="results/bebop_5.abc">abc</a> &middot; <a href="results/bebop_5.musicxml">musicxml</a> &middot; <a href="results/bebop_5.mid">mid</a></p>
+  <details><summary>Diagnostic plots</summary><img loading="lazy" alt="diagnostic plots for bebop_5" src="results/bebop_5.diagnostics.png"></details>
+</article>
+
+
+<h2>Where it does work: synthetic audio</h2>
+<p>On a synthetic corpus with exact ground truth &mdash; same code, same backend
+&mdash; the machinery performs, which localises the failure to melody extraction
+from real room recordings rather than to the pipeline downstream of it.</p>
+<div class="scroll">
+<table>
+  <tr><th>metric</th><th>clean</th><th>meaning</th></tr>
+  <tr><td>pitch accuracy</td><td>0.88 mean, 1.00 on clean takes</td>
+      <td>correct notes</td></tr>
+  <tr><td>form accuracy</td><td>0.80</td>
+      <td>correct section structure (was 0.67)</td></tr>
+  <tr><td>key</td><td>0.73</td><td>correct key and mode</td></tr>
+  <tr><td>tempo error</td><td>0.7%</td><td>beat tracking</td></tr>
+</table>
+</div>
+
+<h2>Two findings worth keeping</h2>
+<p><strong>Form detection was reporting an artifact.</strong> A section length
+that is not commensurate with the tune's period slides its phase forward each
+block, so blocks an even number apart come back into phase and odd ones do not.
+Clustering reads that as a clean A/B contrast. Measured on one recording: at
+block lengths that are multiples of the 16-beat period, similarity is 0.50 flat
+at every lag; at lengths that are not, it alternates 0.20/0.52 and wins the
+search outright. Those lengths are no longer generated.</p>
+<p><strong>What that exposed is the real blocker.</strong> At the
+<em>correct</em> section length, the A part and the B part resemble each other
+exactly as much as two passes of the A part do. The extracted line carries the
+tune's periodicity but not enough detail to separate its sections &mdash; a
+melody-extraction problem that no form prior can fix.</p>
+
+<h2>What would move this next</h2>
+<ol>
+  <li><strong>Ground truth.</strong> Eight bars of one recording transcribed by
+  ear would convert every open question here into a measurement. Every number on
+  this page is a proxy, and proxies are gameable.</li>
+  <li><strong>Source separation.</strong> Removing the bass and guitar stems
+  before extraction attacks the problem at its root. Untested &mdash; the
+  pretrained weights were unreachable from the build environment, so this is
+  unproven rather than disproven.</li>
+  <li><strong>A melody-selection prior</strong> keyed to register and to the
+  tune's own key, rather than picking the loudest note in range.</li>
+</ol>
+
+<footer>
+Generated from pipeline output by <code>tools/build_site.py</code>.
+Source: <a href="https://github.com/ablack3033/jamslam">github.com/ablack3033/jamslam</a>.
+Notation rendered with abcjs. Only the gold-standard reference recording is
+published here; the other jam audio stays out of the repository.
+</footer>
+
+</div>
+<script>
+  document.querySelectorAll(".score").forEach(function (el, i) {
+    ABCJS.renderAbc(el, el.dataset.abc, {
+      responsive: "resize", staffwidth: 720, scale: 1.0
+    });
+  });
+</script>
+</body>
+</html>

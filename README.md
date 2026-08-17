@@ -9,6 +9,11 @@ been shown to be an unreliable guide to real-audio behaviour.** There is no API 
 frontend, deliberately — see [Findings on real recordings](#findings-on-real-recordings),
 which is the evidence that should decide what to do next.
 
+A **status page** showing what the pipeline currently produces on all five real
+recordings — rendered notation, diagnostics, and a plain verdict per recording —
+is generated from real runs by `tools/build_site.py` into `docs/`. Enable GitHub
+Pages with source *Deploy from a branch → `/docs`* to serve it.
+
 ---
 
 ## Quickstart

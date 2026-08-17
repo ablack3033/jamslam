@@ -9,6 +9,9 @@ dist/
 # Generated corpus audio and transcription artifacts
 datasets/synth/
 datasets/tunes/*/recording.*
+# The gold-standard reference recording is committed on purpose: it is the
+# worked example the documentation walks through.
+!datasets/tunes/memory_of_home/recording.m4a
 *.wav
 *.mid
 *.musicxml

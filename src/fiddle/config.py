@@ -20,10 +20,21 @@ class MelodyConfig:
     sample_rate: int = 44100
     frame_size: int = 2048
     hop_size: int = 128  # ~2.9 ms at 44.1 kHz; Melodia's documented default
-    # Melodia's range gate. Set from the fiddle range with headroom so that a
-    # genuine high E is not clipped but a banjo's low drone is unlikely to win.
-    min_frequency: float = 130.0  # ~C3, below the fiddle to allow octave errors
-    max_frequency: float = 2200.0  # ~C#7
+    # Melodia's range gate. This is the most consequential single number in the
+    # config on real recordings.
+    #
+    # It was originally 130 Hz (~C3), set below the fiddle deliberately so that
+    # octave errors would still be visible to the cleaner. On real jam audio
+    # that was a serious mistake: guitar, bass and banjo own the 100-250 Hz band
+    # and are usually closer to a phone's microphone than the fiddle is, so
+    # Melodia's salience function tracked *them*. The result was a contour
+    # parked on sustained low drones with no melody in it at all.
+    #
+    # 250 Hz sits just under B3, comfortably below the fiddle's working
+    # melodic range while excluding most accompaniment fundamentals. Old-time
+    # fiddle melody essentially never goes below the D above the G string.
+    min_frequency: float = 250.0
+    max_frequency: float = 2200.0  # ~C#7, above any melody note a fiddler plays
     voicing_tolerance: float = 0.2  # Melodia default; higher = more voiced
     filter_iterations: int = 3
 

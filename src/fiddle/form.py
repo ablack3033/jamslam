@@ -107,11 +107,17 @@ def analyze_form(
     max_block = min(cfg.max_section_bars * 4, int(total_beats // 2))
     candidates: list[tuple] = []
 
-    for block_beats in range(min_block, max_block + 1, beats_per_bar):
+    # Step by ONE BEAT, not one bar. Old-time is full of crooked tunes -- a
+    # section with a 2-beat or 6-beat bar in it, so the section total is not a
+    # multiple of the bar length. Stepping by whole bars made those sections
+    # literally unrepresentable: the correct hypothesis was never generated, and
+    # the search silently returned the nearest wrong one. This costs more
+    # hypotheses, paid for by a narrower offset search below.
+    for block_beats in range(min_block, max_block + 1):
         n_blocks_max = int(total_beats // block_beats)
         if n_blocks_max < 3:  # need at least one repeat plus a contrast
             continue
-        bars = int(round(block_beats / beats_per_bar))
+        bars = block_beats / beats_per_bar
         # Offsets are searched at BEAT resolution, not bar resolution. The
         # downbeat phase from onset energy is only about 70% reliable, and if it
         # is off by one beat then bar-aligned block starts can never coincide
@@ -120,7 +126,7 @@ def analyze_form(
         # every beat removes that dependency, and the winning offset becomes our
         # best downbeat estimate, since a section boundary is by definition a
         # downbeat and is far better evidence than onset energy.
-        for offset_beats in range(0, min(block_beats, 16)):
+        for offset_beats in range(0, min(block_beats, 8)):
             offset = start + offset_beats
             blocks = _blocks(notes, offset, block_beats, total_beats + start)
             # A jam plays at least AABB, so a hypothesis yielding fewer than
@@ -133,7 +139,11 @@ def analyze_form(
             if quality is None:
                 continue
             coverage = len(blocks) * block_beats / total_beats
+            # Whole-bar sections are much more common, so they get the bonus;
+            # crooked ones stay reachable at a mild disadvantage.
             prior = 1.08 if bars in cfg.expected_section_bars else 1.0
+            if bars != int(bars):
+                prior *= 0.92
             # AABB dominates the repertoire, so two distinct sections is the
             # single most likely answer. A gentle bonus, not a constraint --
             # one-part and three-part tunes must still be reachable.
@@ -206,13 +216,13 @@ def analyze_form(
         s.similarity_to_reference = float(sim[s.index][ref.index])
 
     log.append(
-        f"section length {bars} bars ({block_beats} beats), offset {offset:g}, "
+        f"section length {bars:g} bars ({block_beats} beats), offset {offset:g}, "
         f"{len(sections)} passes, cluster quality {quality:.3f}, coverage {coverage:.2f}"
     )
     confidence = float(np.clip(quality * (0.6 + 0.4 * coverage), 0.0, 0.99))
     return FormAnalysis(
         sections=sections,
-        bars_per_section=bars,
+        bars_per_section=int(round(bars)),
         beats_per_section=float(block_beats),
         confidence=confidence,
         offset_beats=float(offset),

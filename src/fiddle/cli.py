@@ -46,12 +46,31 @@ def main(argv: list[str] | None = None) -> int:
     p_bc.add_argument("out", type=Path)
     p_bc.add_argument("--difficulties", default="clean,jam,hard")
 
+    p_id = sub.add_parser("identify", help="match a recording against a tune catalog")
+    p_id.add_argument("audio", type=Path, nargs="?")
+    p_id.add_argument("--from-json", type=Path,
+                      help="use an existing .notes.json instead of re-transcribing")
+    p_id.add_argument("--catalog", type=Path,
+                      help="ABC file or directory of ABC files (default: builtin)")
+    p_id.add_argument("--top", type=int, default=5)
+    p_id.add_argument("--melody-backend", default=None)
+
+    p_bj = sub.add_parser("banjo", help="arrange a three-finger banjo part")
+    p_bj.add_argument("source", type=Path, help="audio file, or an .abc melody")
+    p_bj.add_argument("-o", "--outdir", type=Path, default=None)
+    p_bj.add_argument("--capo", type=int, default=None)
+    p_bj.add_argument("--roll", default="forward",
+                      choices=["forward", "backward", "forward_reverse",
+                               "alternating_thumb"])
+    p_bj.add_argument("--no-vary-rolls", action="store_true")
+
     p_bk = sub.add_parser("backends", help="list available melody backends")
     p_bk.set_defaults(func=_cmd_backends)
 
     # Allow `fiddle-transcribe file.m4a` with no subcommand.
     argv = list(sys.argv[1:] if argv is None else argv)
-    known = {"transcribe", "eval", "ablate", "build-corpus", "backends"}
+    known = {"transcribe", "eval", "ablate", "build-corpus", "backends",
+             "identify", "banjo"}
     if argv and argv[0] not in known and not argv[0].startswith("-"):
         argv.insert(0, "transcribe")
     if not argv:
@@ -65,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
         "ablate": _cmd_ablate,
         "build-corpus": _cmd_build_corpus,
         "backends": _cmd_backends,
+        "identify": _cmd_identify,
+        "banjo": _cmd_banjo,
     }
     return handlers[args.command](args)
 
@@ -80,6 +101,11 @@ def _add_transcribe_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--no-consensus", action="store_true",
                    help="skip consensus and use the single best pass")
     p.add_argument("--plots", action="store_true", help="write a diagnostic figure")
+    p.add_argument("--banjo", action="store_true",
+                   help="also arrange a three-finger banjo part")
+    p.add_argument("--identify", action="store_true",
+                   help="also match the result against the tune catalog")
+    p.add_argument("--catalog", type=Path, help="catalog for --identify")
     p.add_argument("--config", type=Path, help="JSON config overrides")
 
 
@@ -127,6 +153,20 @@ def _cmd_transcribe(args) -> int:
 
     print(format_summary(result))
     outputs = [".pitch.csv", ".notes.json", ".musicxml", ".mid", ".abc"]
+    if args.banjo:
+        from .banjo import arrange, export_banjo_tab
+
+        part = arrange(result.tune)
+        export_banjo_tab(part, f"{stem}.banjo.txt")
+        outputs.append(".banjo.txt")
+        print("\nbanjo: " + "; ".join(part.notes_log))
+    if args.identify:
+        from .catalog import load_catalog
+        from .identify import format_identification, identify_result
+
+        catalog = load_catalog(args.catalog)
+        print()
+        print(format_identification(identify_result(result, catalog)))
     if args.plots:
         if plot_diagnostics(result, f"{stem}.diagnostics.png"):
             outputs.append(".diagnostics.png")
@@ -221,6 +261,105 @@ def _cmd_build_corpus(args) -> int:
             (d / "truth.json").write_text(json.dumps(truth.to_dict(), indent=2))
             print(d)
     return 0
+
+
+def _cmd_identify(args) -> int:
+    """Match a transcription against a catalog of known tunes.
+
+    Doubles as validation: hand-writing ground truth is the bottleneck in
+    growing the corpus, so a confident catalog match gives us an approximate
+    ground truth for free -- and a *failure* to match anything is itself a
+    signal that the transcription is too noisy to be usable.
+    """
+    import json
+
+    from .catalog import load_catalog
+    from .identify import format_identification, identify, identify_result
+
+    catalog = load_catalog(args.catalog)
+    if not catalog:
+        print(f"no tunes could be read from {args.catalog}", file=sys.stderr)
+        return 2
+
+    if args.from_json:
+        payload = json.loads(args.from_json.read_text())
+        pitches = [n["pitch"] for n in payload.get("raw_notes", [])]
+        ident = identify(pitches, catalog, args.top)
+    elif args.audio:
+        from .pipeline import transcribe_file
+
+        cfg = _config_from_args(args)
+        ident = identify_result(transcribe_file(args.audio, cfg), catalog, args.top)
+    else:
+        print("give an audio file or --from-json", file=sys.stderr)
+        return 2
+
+    print(format_identification(ident))
+    return 0
+
+
+def _cmd_banjo(args) -> int:
+    """Arrange a banjo part from audio or from an ABC melody.
+
+    Accepting ABC directly matters: the arranger is useful long before melody
+    extraction is reliable, because a hand-corrected ABC is a perfectly good
+    input and produces a genuinely playable part.
+    """
+    from .banjo import BanjoConfig, arrange, export_banjo_tab, to_tablature
+
+    if args.source.suffix.lower() == ".abc":
+        tune = _tune_from_abc(args.source)
+    else:
+        from .pipeline import transcribe_file
+
+        tune = transcribe_file(args.source, Config()).tune
+
+    cfg = BanjoConfig(capo=args.capo, roll=args.roll,
+                      vary_rolls=not args.no_vary_rolls)
+    part = arrange(tune, cfg)
+    outdir = args.outdir or args.source.parent
+    export_banjo_tab(part, outdir / f"{args.source.stem}.banjo.txt")
+    for line in part.notes_log:
+        print(f"  {line}")
+    print()
+    print(to_tablature(part))
+    return 0
+
+
+def _tune_from_abc(path: Path):
+    """Build a Tune from an ABC melody so the arranger can consume it."""
+    from fractions import Fraction
+
+    from .abc_io import beats_per_bar_from_header, meter_from_abc, parse_abc_sections
+    from .domain import Measure, Note, Tune, TuneSection
+
+    text = path.read_text()
+    meter_str = meter_from_abc(text)
+    beats_per_bar = float(beats_per_bar_from_header(text.splitlines()))
+    sections = []
+    for name, section in sorted(parse_abc_sections(text).items()):
+        bars: dict[int, Measure] = {}
+        for n in section.notes:
+            idx = int(float(n.start_beats) // beats_per_bar)
+            bars.setdefault(idx, Measure(notes=[], number=idx + 1)).notes.append(
+                Note(pitch=n.pitch, start_beats=n.start_beats,
+                     duration_beats=n.duration_beats, confidence=1.0)
+            )
+        sections.append(TuneSection(name=name,
+                                    measures=[bars[k] for k in sorted(bars)],
+                                    repeats=2))
+    key_line = next((ln[2:].strip() for ln in text.splitlines()
+                     if ln.startswith("K:")), "D")
+    from .catalog import _normalize_key
+
+    key = _normalize_key(key_line)
+    from .key import _signature_for, _parse_key
+
+    tonic, mode = _parse_key(key)
+    title = next((ln[2:].strip() for ln in text.splitlines()
+                  if ln.startswith("T:")), path.stem)
+    return Tune(key=key, meter=meter_str, tempo=120.0, sections=sections,
+                title=title, analysis={"key_sharps": _signature_for(tonic, mode)})
 
 
 def _cmd_backends(args) -> int:

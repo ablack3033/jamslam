@@ -1,0 +1,10 @@
+{
+  "title": "Memory of Home (working name, from the filename)",
+  "source": "real jam recording, phone, mono 48 kHz AAC, 4m24s",
+  "gold_standard": true,
+  "ground_truth_status": "MISSING - see NOTES.md",
+  "inferred_key": "A major",
+  "inferred_tempo_bpm": 103.4,
+  "inferred_meter": "4/4",
+  "note": "key/tempo/meter here are the PIPELINE'S OWN OUTPUT, not verified truth. They are recorded for regression tracking only and must not be scored against."
+}

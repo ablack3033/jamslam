@@ -43,13 +43,22 @@ def tune_to_stream(tune: Tune, mark_uncertain_below: float = 0.7):
     beats_per_bar = _beats_per_bar(tune.meter)
     measure_number = 1
 
+    current_meter = beats_per_bar
     for section in tune.sections:
         m21_measures = []
+        bar_start = Fraction(0)
         for measure in section.measures:
             m = stream.Measure(number=measure_number)
             measure_number += 1
             offset = Fraction(0)
-            bar_start = Fraction((measure.number - 1) * beats_per_bar)
+            # A crooked bar carries its own time signature rather than being
+            # padded out to the prevailing meter. Padding a 3-beat bar with a
+            # rest would misrepresent the tune: crooked bars are how it is
+            # actually played, not a shortfall to be filled.
+            bar_beats = _measure_length(measure, beats_per_bar)
+            if bar_beats != current_meter:
+                m.insert(0.0, meter.TimeSignature(_meter_string(bar_beats)))
+                current_meter = bar_beats
             for n in measure.notes:
                 local = n.start_beats - bar_start
                 if local > offset:
@@ -60,10 +69,11 @@ def tune_to_stream(tune: Tune, mark_uncertain_below: float = 0.7):
                 el = _make_element(n, sharps, mark_uncertain_below)
                 m.insert(float(local), el)
                 offset = local + n.duration_beats
-            if offset < beats_per_bar:
+            if offset < bar_beats:
                 m.insert(float(offset),
-                         m21note.Rest(quarterLength=float(beats_per_bar - offset)))
+                         m21note.Rest(quarterLength=float(bar_beats - offset)))
             m21_measures.append(m)
+            bar_start += bar_beats
 
         if m21_measures and section.repeats >= 2:
             m21_measures[0].leftBarline = bar.Repeat(direction="start")
@@ -104,6 +114,38 @@ def _spell(midi: int, sharps: int) -> str:
     names = _SHARP_NAMES if sharps >= 0 else _FLAT_NAMES
     octave = midi // 12 - 1
     return f"{names[midi % 12]}{octave}"
+
+
+def _measure_length(measure, default: Fraction) -> Fraction:
+    """The bar's actual length in beats.
+
+    Taken from the notes it contains rather than assumed, so a crooked bar is
+    notated as the length it really is. Falls back to the prevailing meter for
+    an empty bar, where there is nothing to measure.
+    """
+    if not measure.notes:
+        return default
+    span = max(n.end_beats for n in measure.notes) - min(
+        n.start_beats for n in measure.notes
+    )
+    total = measure.total_beats
+    length = max(total, span)
+    # Only accept a crooked length if it is a clean simple value; anything else
+    # is a segmentation artifact and the prevailing meter is the safer reading.
+    for candidate in (Fraction(1), Fraction(2), Fraction(3), Fraction(4),
+                      Fraction(5), Fraction(6), Fraction(7), Fraction(8)):
+        if abs(float(length - candidate)) < 0.26:
+            return candidate
+    return default
+
+
+def _meter_string(beats: Fraction) -> str:
+    """Render a bar length in quarter-note beats as a time signature."""
+    if beats.denominator == 1:
+        return f"{beats.numerator}/4"
+    if beats.denominator == 2:
+        return f"{beats.numerator}/8"
+    return "4/4"
 
 
 def _beats_per_bar(meter_str: str) -> Fraction:

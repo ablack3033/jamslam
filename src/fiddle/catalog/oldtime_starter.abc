@@ -1,0 +1,214 @@
+% Starter catalog of common old-time jam tunes, for tune identification.
+%
+% IMPORTANT: these are hand-entered *approximate* settings, not authoritative
+% transcriptions. That is acceptable and even appropriate for identification,
+% because old-time tunes have no canonical setting -- every player's version
+% differs in ornaments and passing notes, and the matcher is built to be robust
+% to exactly that (it compares beat-level skeletons under all transpositions).
+%
+% To identify against a real library, point the matcher at its ABC files:
+%     fiddle-transcribe identify recording.m4a --catalog /path/to/library
+% Any directory of .abc files, or a single multi-tune ABC tunebook, works.
+
+X:1
+T:Soldier's Joy
+R:reel
+M:4/4
+L:1/8
+K:D
+|:a2 fa gfef|dcde fdcd|a2 fa gfeg|fdcd e2 de|
+a2 fa gfef|dcde fdcd|a2 fa gfeg|fdcd e2 d2:|
+|:f2 df e2 ce|dcde fdcd|f2 df e2 ce|fdcd e2 de|
+f2 df e2 ce|dcde fdcd|a2 fa gfeg|fdcd e2 d2:|
+
+X:2
+T:Angeline the Baker
+M:4/4
+L:1/8
+K:D
+|:d2 dd d2 de|f2 f2 f2 ed|d2 dd d2 de|f2 e2 d4|
+d2 dd d2 de|f2 f2 f2 ed|A2 AA B2 AG|F2 D2 D4:|
+|:f2 f2 f2 ga|b2 b2 b2 af|f2 f2 f2 ed|d2 e2 d4|
+f2 f2 f2 ga|b2 b2 b2 af|A2 AA B2 AG|F2 D2 D4:|
+
+X:3
+T:Cripple Creek
+M:4/4
+L:1/8
+K:A
+|:a2 ab agef|gefg e2 d2|a2 ab agef|g2 e2 a4|
+a2 ab agef|gefg e2 d2|e2 dB A2 B2|d2 B2 A4:|
+|:A2 AB A2 e2|f2 ef e2 d2|A2 AB A2 e2|d2 B2 A4|
+A2 AB A2 e2|f2 ef e2 d2|e2 dB A2 B2|d2 B2 A4:|
+
+X:4
+T:Old Joe Clark
+M:4/4
+L:1/8
+K:AMix
+|:a2 ab a2 ge|a2 ab a4|a2 ab agef|g2 e2 d2 B2|
+a2 ab a2 ge|a2 ab a4|a2 ab agef|g2 e2 a4:|
+|:e2 e2 e2 dB|d2 d2 d2 B2|e2 e2 e2 dB|A2 B2 A4|
+e2 e2 e2 dB|d2 d2 d2 B2|a2 ab agef|g2 e2 a4:|
+
+X:5
+T:Whiskey Before Breakfast
+M:4/4
+L:1/8
+K:D
+|:d2 ef gfed|B2 AB d2 BA|F2 AB defg|a2 fa gfed|
+d2 ef gfed|B2 AB d2 BA|F2 AB defg|fdec d4:|
+|:a2 fa b2 ab|a2 fa e2 de|f2 df e2 ce|d2 BA F2 AB|
+a2 fa b2 ab|a2 fa e2 de|f2 df e2 ce|dcBA d4:|
+
+X:6
+T:Red Haired Boy
+R:hornpipe
+M:4/4
+L:1/8
+K:AMix
+|:e2 ce a2 ga|f2 df e2 dc|A2 AB cBAG|ABcd e2 e2|
+e2 ce a2 ga|f2 df e2 dc|A2 AB cBAG|EFGA B2 A2:|
+|:a2 ea fgab|a2 ea g2 ge|a2 ea fgab|gfed e2 dc|
+A2 AB cBAG|ABcd e2 dc|A2 AB cBAG|EFGA B2 A2:|
+
+X:7
+T:Arkansas Traveler
+M:4/4
+L:1/8
+K:D
+|:f2 fd f2 fd|f2 fd efge|f2 fd f2 fd|B2 BA B2 AB|
+f2 fd f2 fd|f2 fd efge|fedc defg|a2 f2 d4:|
+|:afdf afdf|afdf e2 de|afdf afdf|B2 BA B2 AB|
+afdf afdf|afdf e2 de|fedc defg|a2 f2 d4:|
+
+X:8
+T:Blackberry Blossom
+M:4/4
+L:1/8
+K:G
+|:gfge dBGB|AGAB cBAG|FGAB cBAG|FGAB cedc|
+BGdG eGdG|BGdG eGdc|BGdG eGdB|AGFA G4:|
+|:g2 bg ageg|f2 af gfef|d2 fd cdec|BGAF G2 GA|
+g2 bg ageg|f2 af gfef|d2 fd cdec|BGAF G4:|
+
+X:9
+T:June Apple
+M:4/4
+L:1/8
+K:AMix
+|:a2 ab agef|g2 ge d2 ef|g2 ge d2 Bd|e2 dB A2 A2|
+a2 ab agef|g2 ge d2 ef|g2 ge dBAB|d2 B2 A4:|
+|:A2 AB A2 e2|f2 ef e2 d2|A2 AB A2 Bd|e2 dB A4|
+A2 AB A2 e2|f2 ef e2 d2|g2 ge dBAB|d2 B2 A4:|
+
+X:10
+T:Cluck Old Hen
+M:4/4
+L:1/8
+K:ADor
+|:a2 ag e2 d2|e2 g2 a4|a2 ag e2 d2|g2 e2 d4|
+a2 ag e2 d2|e2 g2 a4|a2 ag e2 d2|g2 e2 d4:|
+|:A2 A2 c2 d2|e2 e2 d2 c2|A2 A2 c2 d2|e2 d2 c2 A2|
+A2 A2 c2 d2|e2 e2 d2 c2|A2 A2 c2 d2|e2 d2 A4:|
+
+X:11
+T:Turkey in the Straw
+M:4/4
+L:1/8
+K:G
+|:d2 BG A2 GA|B2 dB A2 GA|B2 dB d2 ga|b2 ag e2 d2|
+d2 BG A2 GA|B2 dB A2 GA|B2 dB dBAG|B2 A2 G4:|
+|:g2 ga b2 ag|e2 d2 B2 A2|G2 GA B2 dB|A2 AG A2 GA|
+g2 ga b2 ag|e2 d2 B2 A2|G2 GA B2 dB|A2 AG G4:|
+
+X:12
+T:Over the Waterfall
+M:4/4
+L:1/8
+K:D
+|:d2 fd A2 fd|d2 fd e2 fg|a2 fa b2 af|e2 ce d2 e2|
+d2 fd A2 fd|d2 fd e2 fg|a2 fa b2 af|e2 ce d4:|
+|:a2 fa b2 af|a2 fa e2 de|a2 fa b2 af|e2 ce d2 e2|
+a2 fa b2 af|a2 fa e2 de|f2 df e2 ce|d2 A2 D4:|
+
+X:13
+T:Mississippi Sawyer
+M:4/4
+L:1/8
+K:D
+|:a2 fa gfed|A2 FA d2 de|f2 df e2 ce|d2 A2 F2 D2|
+a2 fa gfed|A2 FA d2 de|f2 df e2 ce|d2 A2 D4:|
+|:D2 FA d2 de|f2 ef d2 A2|D2 FA d2 de|f2 e2 d2 A2|
+D2 FA d2 de|f2 ef d2 A2|a2 fa gfed|e2 ce d4:|
+
+X:14
+T:Bill Cheatham
+M:4/4
+L:1/8
+K:A
+|:e2 ce A2 ce|f2 ef e2 cA|B2 GB E2 GB|A2 AB cBAG|
+e2 ce A2 ce|f2 ef e2 cA|B2 GB E2 GB|A2 A2 A4:|
+|:a2 ea c2 ea|b2 ab a2 ec|B2 GB E2 GB|A2 AB cBAG|
+a2 ea c2 ea|b2 ab a2 ec|B2 GB E2 GB|A2 A2 A4:|
+
+X:15
+T:Salt Creek
+M:4/4
+L:1/8
+K:A
+|:A2 AB cdec|A2 AB c2 e2|A2 AB cdec|B2 GB A2 A2|
+A2 AB cdec|A2 AB c2 e2|a2 ea fgfe|c2 A2 A4:|
+|:e2 ce a2 ce|f2 ef e2 c2|e2 ce a2 ce|b2 ab a2 e2|
+e2 ce a2 ce|f2 ef e2 c2|a2 ea fgfe|c2 A2 A4:|
+
+X:16
+T:Forked Deer
+M:4/4
+L:1/8
+K:D
+|:f2 df e2 ce|d2 Ad F2 AF|G2 BG F2 AF|E2 CE D2 FA|
+f2 df e2 ce|d2 Ad F2 AF|G2 BG F2 AF|E2 CE D4:|
+|:a2 fa d2 fa|b2 ab a2 fd|e2 ce a2 ce|f2 ef e2 cA|
+a2 fa d2 fa|b2 ab a2 fd|e2 ce A2 ce|d2 A2 D4:|
+
+X:17
+T:Fisher's Hornpipe
+R:hornpipe
+M:4/4
+L:1/8
+K:D
+|:fedc dcBA|G2 BG FGAF|G2 BG FADF|E2 CE D2 FA|
+fedc dcBA|G2 BG FGAF|G2 BG FADF|E2 CE D4:|
+|:d2 fd cdec|B2 dB A2 FA|d2 fd cdec|B2 dB A2 A2|
+d2 fd cdec|B2 dB A2 FA|G2 BG FADF|E2 CE D4:|
+
+X:18
+T:Shady Grove
+M:4/4
+L:1/8
+K:ADor
+|:A2 AB c2 A2|G2 GA B2 G2|A2 AB c2 d2|e2 d2 c2 A2|
+A2 AB c2 A2|G2 GA B2 G2|A2 AB c2 d2|e2 d2 A4:|
+|:e2 ea g2 e2|d2 dc B2 G2|e2 ea g2 e2|d2 c2 A4|
+e2 ea g2 e2|d2 dc B2 G2|A2 AB c2 d2|e2 d2 A4:|
+
+X:19
+T:Liberty
+M:4/4
+L:1/8
+K:D
+|:d2 dc dfed|B2 AF D2 FA|B2 BA Bcde|f2 ed e2 fg|
+d2 dc dfed|B2 AF D2 FA|B2 BA Bcde|fdec d4:|
+|:a2 fa gfed|B2 AF D2 FA|B2 BA Bcde|f2 ed e2 fg|
+a2 fa gfed|B2 AF D2 FA|B2 BA Bcde|fdec d4:|
+
+X:20
+T:Sandy River Belle
+M:4/4
+L:1/8
+K:G
+|:d2 dB d2 ga|b2 ag e2 d2|d2 dB d2 ga|
+b2 ag e2 d2|G2 AB d2 BA|G2 A2 G4:|
+|:g2 ga b2 ag|e2 d2 B2 A2|G2 AB d2 ga|
+b2 ag e2 d2|G2 AB d2 BA|G2 A2 G4:|

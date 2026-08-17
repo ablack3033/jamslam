@@ -337,12 +337,63 @@ def _slots_to_notes(
 def _to_measures(
     notes: list[Note], beats_per_bar: int, beats_per_section: float
 ) -> list[Measure]:
-    n_bars = max(1, int(round(beats_per_section / beats_per_bar)))
-    measures = [Measure(notes=[], number=i + 1) for i in range(n_bars)]
+    """Distribute notes into bars, allowing one crooked bar per section.
+
+    Old-time is full of crooked tunes -- sections carrying an extra or missing
+    couple of beats, so the section total is not a whole number of bars. Forcing
+    such a section onto a uniform grid pushes every later note across a barline
+    and produces notation no one can read.
+
+    So when there is a remainder, exactly one bar absorbs it, and we choose
+    *which* bar by minimising the number of notes that straddle a barline. That
+    is the same judgement a transcriber makes by ear: the odd bar goes where the
+    phrase actually breaks.
+    """
+    total = float(beats_per_section)
+    full_bars = int(total // beats_per_bar)
+    remainder = total - full_bars * beats_per_bar
+
+    if remainder < 1e-6 or full_bars == 0:
+        lengths = [float(beats_per_bar)] * max(1, full_bars)
+    else:
+        best_lengths, best_cost = None, float("inf")
+        # Try putting the odd bar at each position; keep the least disruptive.
+        for pos in range(full_bars + 1):
+            lengths = [float(beats_per_bar)] * full_bars
+            lengths.insert(pos, remainder)
+            cost = _straddle_cost(notes, lengths)
+            if cost < best_cost:
+                best_lengths, best_cost = lengths, cost
+        lengths = best_lengths or [float(beats_per_bar)] * full_bars
+
+    measures = [Measure(notes=[], number=i + 1) for i in range(len(lengths))]
+    edges = _edges(lengths)
     for note in notes:
-        idx = min(n_bars - 1, int(float(note.start_beats) // beats_per_bar))
+        start = float(note.start_beats)
+        idx = max(0, min(len(measures) - 1,
+                         int(np.searchsorted(edges, start, side="right")) - 1))
         measures[idx].notes.append(note)
     return measures
+
+
+def _edges(lengths: list[float]) -> np.ndarray:
+    out, acc = [0.0], 0.0
+    for length in lengths:
+        acc += length
+        out.append(acc)
+    return np.array(out)
+
+
+def _straddle_cost(notes: list[Note], lengths: list[float]) -> float:
+    """How many notes are cut in half by these barlines."""
+    edges = set(round(e, 4) for e in _edges(lengths)[1:-1])
+    cost = 0.0
+    for note in notes:
+        start, end = float(note.start_beats), float(note.end_beats)
+        for edge in edges:
+            if start < edge < end - 1e-9:
+                cost += 1.0
+    return cost
 
 
 def _mean_conf(notes: list[TimedNote]) -> float:

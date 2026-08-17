@@ -25,6 +25,9 @@ dev = ["pytest>=7", "matplotlib>=3.7"]
 [project.scripts]
 fiddle-transcribe = "fiddle.cli:main"
 
+[tool.setuptools.package-data]
+"fiddle.catalog" = ["*.abc"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

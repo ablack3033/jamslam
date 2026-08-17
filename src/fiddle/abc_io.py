@@ -20,6 +20,16 @@ from pathlib import Path
 _HEADER_KEYS = ("X:", "T:", "M:", "L:", "K:")
 
 
+def is_info_field(line: str) -> bool:
+    """True for an ABC information field line such as ``T:``, ``R:`` or ``Z:``.
+
+    ABC defines information fields as a single letter followed by a colon. A
+    body line can begin with ``:|`` but never with ``<letter>:``, so this is
+    unambiguous.
+    """
+    return len(line) >= 2 and line[0].isalpha() and line[1] == ":"
+
+
 @dataclass(frozen=True)
 class TruthNote:
     """A note in the canonical (notated) tune, in beats from the section start."""
@@ -60,13 +70,23 @@ def parse_abc_sections(abc: str) -> dict[str, TruthSection]:
         if ln.startswith("P:"):
             current = ln[2:].strip()
             sections[current] = []
-        elif ln[:2] in _HEADER_KEYS:
+        elif is_info_field(ln):
+            # Any ABC information field, not just the handful we consume.
+            # Real tunebooks carry R:, C:, S:, N:, Z: and more, and letting one
+            # of them fall through into the music silently destroys the section
+            # it precedes.
             continue
         elif current is not None:
             sections[current].append(ln)
 
-    if not sections:  # single-section tune with no P: markers
-        sections["A"] = [ln for ln in lines if ln[:2] not in _HEADER_KEYS]
+    if not sections:
+        # No P: markers. Real-world ABC almost never uses them -- it marks
+        # sections with repeat barlines instead -- so fall back to splitting on
+        # ":|". This is what lets an arbitrary downloaded tunebook be used as a
+        # catalog or as ground truth.
+        body = [ln for ln in lines if not is_info_field(ln)]
+        for i, part in enumerate(_split_on_repeats(body)):
+            sections[chr(ord("A") + i)] = [part]
 
     beats_per_bar = beats_per_bar_from_header(header)
     out: dict[str, TruthSection] = {}
@@ -90,6 +110,20 @@ def parse_abc_sections(abc: str) -> dict[str, TruthSection]:
         out[name] = TruthSection(name=name, notes=notes,
                                  bars=_validate_bars(name, total, beats_per_bar))
     return out
+
+
+def _split_on_repeats(body: list[str]) -> list[str]:
+    """Split an ABC body into sections at repeat-end barlines.
+
+    Deliberately simple. First/second endings and other notation we do not
+    understand end up folded into whichever section they follow, which is fine:
+    a section that is slightly wrong is still a usable identification target,
+    whereas refusing to parse the tune at all is not.
+    """
+    text = " ".join(body)
+    parts = [p.strip() for p in text.split(":|")]
+    parts = [p for p in parts if p.strip(" |")]
+    return parts or [text]
 
 
 def beats_per_bar_from_header(header) -> Fraction:

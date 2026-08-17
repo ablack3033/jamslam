@@ -151,6 +151,11 @@ def _cmd_transcribe(args) -> int:
     export_midi(result.tune, f"{stem}.mid")
     export_abc(result.tune, f"{stem}.abc")
 
+    if result.presence and not result.presence.melody_found:
+        from .presence import format_presence
+
+        print(format_presence(result.presence), file=sys.stderr)
+        print("", file=sys.stderr)
     print(format_summary(result))
     outputs = [".pitch.csv", ".notes.json", ".musicxml", ".mid", ".abc"]
     if args.banjo:

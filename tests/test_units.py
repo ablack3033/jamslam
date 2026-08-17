@@ -296,3 +296,83 @@ P:A
 d2 dB d2 ga|b2 ag e2 d2|G2 A2 G4|
 """
     assert parse_abc_sections(abc)["A"].bars == 3
+
+
+# --------------------------------------------------------------------------
+# melody presence
+#
+# These guard the check that stops the system emitting a tidy score for a
+# recording whose melody it never found -- the failure a musician cannot
+# distinguish from success without checking every note.
+# --------------------------------------------------------------------------
+
+
+def _fake_contour(midi, hop=0.01):
+    midi = np.asarray(midi, dtype=float)
+    return PitchContour(times=np.arange(len(midi)) * hop, midi=midi,
+                        confidence=np.ones(len(midi)), hop_seconds=hop)
+
+
+def test_bass_coupling_detects_a_rigid_octave_above_the_bass():
+    """The real failure: the 'melody' is the guitar root, doubled an octave up."""
+    from fiddle.presence import _bass_coupling
+
+    rng = np.random.default_rng(0)
+    bass = np.repeat(rng.choice([50.0, 55.0, 57.0], size=200), 20)
+    melody = bass + 12.0
+    assert _bass_coupling(melody, bass) > 0.95
+
+
+def test_bass_coupling_stays_low_for_a_real_melody():
+    """A melody wanders relative to the bass even when both are chord-based."""
+    from fiddle.presence import _bass_coupling
+
+    rng = np.random.default_rng(1)
+    bass = np.repeat(rng.choice([50.0, 55.0, 57.0], size=200), 20)
+    melody = np.repeat(rng.choice([74.0, 76.0, 78.0, 79.0, 81.0], size=800), 5)
+    n = min(len(bass), len(melody))
+    assert _bass_coupling(melody[:n], bass[:n]) < 0.5
+
+
+def test_presence_flags_a_drone():
+    from fiddle.presence import diagnose_melody
+
+    midi = np.full(4000, 69.0)
+    midi[::50] = 71.0  # a little movement, still overwhelmingly one pitch
+    p = diagnose_melody(None, contour=_fake_contour(midi),
+                        bass_contour=_fake_contour(np.full(4000, np.nan)))
+    assert not p.melody_found
+    assert any("single pitch" in w for w in p.warnings)
+
+
+def test_presence_flags_a_static_range():
+    from fiddle.presence import diagnose_melody
+
+    rng = np.random.default_rng(2)
+    midi = 69.0 + rng.choice([0.0, 1.0], size=4000)
+    p = diagnose_melody(None, contour=_fake_contour(midi),
+                        bass_contour=_fake_contour(np.full(4000, np.nan)))
+    assert not p.melody_found
+
+
+def test_presence_accepts_a_real_melodic_contour():
+    """The control: a moving, wide-range contour must NOT be flagged."""
+    from fiddle.presence import diagnose_melody
+
+    rng = np.random.default_rng(3)
+    tune = [74, 76, 78, 79, 81, 79, 78, 76, 74, 69, 71, 73, 74, 76, 74, 71]
+    midi = np.repeat(np.array(tune * 25, dtype=float), 10)
+    midi += rng.normal(0, 0.05, len(midi))
+    p = diagnose_melody(None, contour=_fake_contour(midi),
+                        bass_contour=_fake_contour(np.full(len(midi), np.nan)))
+    assert p.melody_found, p.warnings
+    assert p.pitch_iqr > 3.0
+
+
+def test_presence_reports_nothing_voiced():
+    from fiddle.presence import diagnose_melody
+
+    p = diagnose_melody(None, contour=_fake_contour(np.full(500, np.nan)),
+                        bass_contour=_fake_contour(np.full(500, np.nan)))
+    assert not p.melody_found
+    assert p.voiced_fraction == 0.0

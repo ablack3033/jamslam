@@ -26,6 +26,7 @@ from .key import KeyAnalysis, infer_key
 from .melody import get_extractor
 from .meter import MeterAnalysis, infer_meter
 from .pitch_clean import clean_contour
+from .presence import MelodyPresence, diagnose_melody
 from .repetition import contour_on_beat_grid, repetition_score
 from .rhythm import RhythmAnalysis, analyze_rhythm, quantize_notes
 from .segment import segment_notes
@@ -45,6 +46,7 @@ class TranscriptionResult:
     meter: MeterAnalysis
     key: KeyAnalysis
     form: FormAnalysis
+    presence: MelodyPresence | None = None
     consensus_reports: list[ConsensusReport] = field(default_factory=list)
     config: Config = field(default_factory=Config)
     log: list[str] = field(default_factory=list)
@@ -65,6 +67,7 @@ class TranscriptionResult:
             ),
             "voiced_fraction": round(self.clean_contour.voiced_fraction, 3),
             "melody_backend": self.raw_contour.backend,
+            "melody_found": self.presence.melody_found if self.presence else None,
         }
 
 
@@ -78,6 +81,14 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
     raw = extractor.extract(audio)
     log.append(f"melody: {raw.backend}, {len(raw.times)} frames, "
                f"{raw.voiced_fraction:.2f} voiced")
+
+    # 1b. Before anything downstream, ask whether there is a melody here at all.
+    #     Emitting a tidy score for a recording whose melody was never found is
+    #     the most damaging thing this system can do, because it is
+    #     indistinguishable from success without checking every note.
+    presence = diagnose_melody(audio, cfg.melody, contour=raw)
+    log.append(f"presence: {presence.verdict}")
+    log.extend(f"presence: WARNING {w}" for w in presence.warnings)
 
     # 2. Clean the contour, keeping the raw one for diagnostics.
     cleaned = clean_contour(raw, cfg.clean)
@@ -177,6 +188,7 @@ def transcribe(audio: Audio, config: Config | None = None) -> TranscriptionResul
         meter=meter_analysis,
         key=key_analysis,
         form=form,
+        presence=presence,
         consensus_reports=reports,
         config=cfg,
         log=log,

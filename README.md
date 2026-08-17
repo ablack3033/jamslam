@@ -3,9 +3,10 @@
 Infer the **canonical fiddle melody** from a recording of an old-time jam, and
 produce clean sheet music containing only that melody.
 
-**Status: Phase 1 (research CLI) is working and measured.** There is no API and
-no frontend, deliberately — see [Findings](#findings) for the evidence that
-should decide whether to build them.
+**Status: Phase 1 (research CLI) is built and measured. It works on synthetic
+audio and does NOT yet work on real jam recordings.** There is no API and no
+frontend, deliberately — see [Findings on real recordings](#findings-on-real-recordings),
+which is the evidence that should decide what to do next.
 
 ---
 
@@ -50,7 +51,46 @@ least confident notes:
 ```
 
 Useful flags: `--melody-backend {essentia,pyin,basicpitch}`, `--key "A mixolydian"`,
-`--meter 2/4`, `--no-consensus`, `--config overrides.json`.
+`--meter 2/4`, `--no-consensus`, `--banjo`, `--identify`, `--config overrides.json`.
+
+### Identify the tune
+
+Matching a transcription against a catalog of known settings. This is primarily
+a **validation** mechanism -- see [Validation by identification](#validation-by-identification).
+
+```bash
+# Against the small builtin catalog of common jam tunes
+.venv/bin/fiddle-transcribe identify recording.m4a
+
+# Against a real tune library (any directory of .abc files, or one tunebook)
+.venv/bin/fiddle-transcribe identify recording.m4a --catalog /path/to/library
+
+# Reuse an existing transcription instead of re-analyzing the audio
+.venv/bin/fiddle-transcribe identify --from-json recording.notes.json
+```
+
+### Arrange a three-finger banjo part
+
+Takes audio *or* an ABC melody, so it is useful now, before extraction is
+reliable -- point it at a hand-corrected `.abc` and it produces a real part.
+
+```bash
+.venv/bin/fiddle-transcribe banjo tune.abc
+.venv/bin/fiddle-transcribe banjo recording.m4a --capo 2 --roll forward_reverse
+```
+
+```
+Banjo arrangement -- D major, 4/4, open-G tuning, capo 0
+
+D|7 ----4 -7 -5 -4 -2 -4 -|0 ----0 -2 -4 -0 ----0 -|
+B|---3 -------------------|---2 -------------2 ----|
+G|------------------------|------------------------|
+D|------------------------|------------------------|
+g|------------------------|------------------------|
+  M  i  M  M  M  M  M  M   M  I  M  M  M  M  I  M
+```
+
+Uppercase finger = melody note, lowercase = roll filler; T/I/M = thumb/index/middle.
 
 ### Measure it
 
@@ -68,12 +108,131 @@ Useful flags: `--melody-backend {essentia,pyin,basicpitch}`, `--key "A mixolydia
 ### Tests
 
 ```bash
-.venv/bin/python -m pytest -q          # 63 tests, ~35s
+.venv/bin/python -m pytest -q          # 88 tests, ~60s
 ```
 
 ---
 
-## Findings
+## Findings on real recordings
+
+**Five real phone recordings of jams (3.5–6.4 minutes each) were tested. The
+pipeline does not currently produce a usable transcription of any of them.**
+This is the headline result and it supersedes the synthetic numbers below.
+
+| recording | key (inferred) | tempo | form | notes | uncertain |
+|---|---|---|---|---|---|
+| bebop_1 | A mixolydian | 112 | **failed** | 634 | 61% |
+| bebop_2 | A major | 123 | **failed** | 487 | 20% |
+| bebop_4 | A major | 123 | **failed** | 515 | 28% |
+| bebop_5 | A major | 123 | **failed** | 970 | 52% |
+| memory_of_home | A major | 103 | ABB / 20 bars (bogus) | 380 | 19% |
+
+Form detection failed outright on four of five, and returned its own search
+bound on the fifth. Diagnosing this produced two real bug fixes:
+
+**The melody extractor was tracking the accompaniment.** `min_frequency` was
+130 Hz (~C3), set below the fiddle deliberately so octave errors would stay
+visible to the cleaner. On real jam audio that was a serious mistake: guitar,
+bass and banjo own the 100–250 Hz band and are usually closer to a phone's
+microphone than the fiddle is. The diagnostic plot for the gold-standard
+recording shows a sparse contour parked on sustained low pitches, with one
+section that is almost entirely a single low note. Raising the floor to 250 Hz
+moves the median extracted pitch from MIDI 57 (an accompaniment drone) to MIDI
+69 (the fiddle's register). That is now the default.
+
+**Identification was matching on nothing.** Before IDF weighting, the matcher
+ranked the same tune first for all five recordings *at an identical score* --
+matching purely on the all-zeros interval pattern that repeated notes produce.
+
+The honest conclusion: on real audio the bottleneck is **upstream of everything
+clever**. Consensus and form analysis cannot help if the contour does not
+contain the melody. Fix extraction on real recordings first.
+
+## Validation by identification
+
+Hand-writing ground truth is the thing that makes a regression corpus expensive,
+which is why the corpus is hard to grow. Tune identification attacks that
+directly: if a transcription matches a known setting strongly, the match is
+itself evidence the transcription is roughly right, and the catalog setting can
+serve as approximate ground truth.
+
+```
+transcribe -> identify -> use the matched setting as expected.abc -> measure
+```
+
+How the matching works, and why:
+
+- **Interval n-grams, not note sequences.** Comparing intervals is
+  transposition-invariant by construction, which matters because a jam plays a
+  tune in whatever key it likes and our own key inference may be off. Using
+  n-grams rather than whole-sequence alignment makes it robust to insertions and
+  deletions: a spurious note destroys only the few n-grams spanning it.
+- **Rarity weighting.** Without it, melodically empty patterns dominate.
+- **Matched against the flat note stream, not detected sections.** Form
+  detection is the least reliable stage and fails on most real recordings;
+  identification that depended on it would fail exactly when most needed.
+
+Calibration of the matcher itself, from the test suite:
+
+| input | best score |
+|---|---|
+| a catalog tune against itself | **1.000** |
+| the same tune transposed | **1.000** |
+| one note in seven corrupted | 0.372 (still a 0.26 margin over the next tune) |
+| random notes | no confident match |
+| a single repeated note | no confident match |
+| **the five real recordings** | **0.15 — no confident match** |
+
+So the matcher is not the weak link. A score of 0.15 on a 4-minute recording is
+not ambiguity about *which* tune it is; it is evidence the transcription does
+not contain a recoverable melody.
+
+**Caveat, stated plainly:** this environment has no network access, so the
+builtin catalog is 20 common jam tunes entered by hand, and it may simply not
+contain the tunes in these recordings. Point `--catalog` at a real library to
+rule that out — it accepts any directory of `.abc` files.
+
+## Crooked tunes
+
+Old-time is full of tunes whose sections carry an odd bar — a 2-beat or 6-beat
+bar inside an otherwise 4/4 section — so the section total is not a whole number
+of bars. This is now handled end to end:
+
+- **Search.** Section length is searched at one-beat resolution rather than
+  one-bar. Previously a crooked section was not merely scored badly, it was
+  never generated as a hypothesis at all, so the search silently returned the
+  nearest wrong answer.
+- **Notation.** A crooked bar gets its own time signature rather than being
+  padded out with a rest, and it is placed at the position that splits the
+  fewest notes — the same judgement a transcriber makes by ear.
+
+AABB with whole bars still gets a prior bonus, because it is genuinely far more
+common. Crooked stays reachable, at a mild disadvantage.
+
+## Three-finger banjo
+
+`fiddle-transcribe banjo` arranges a Scruggs-style part from any melody. It is an
+*arranger*, not a transcriber, which is why it is useful today: point it at a
+hand-corrected ABC and it produces a playable part regardless of how melody
+extraction is doing.
+
+The method mirrors how the style actually works. A roll pattern supplies a
+string for every eighth-note slot; melody notes override the roll's choice
+wherever they fall; remaining slots are filled with a chord tone on the roll's
+string. Output is banjo tab, which is what players read.
+
+Two details that generated banjo parts usually get wrong, and this one does not:
+
+- **The fifth string stays an open drone** and never carries melody. Using it
+  melodically is the single most obvious tell of a fake banjo part.
+- **The octave shift into banjo range is chosen once for the whole tune**, not
+  per note. Folding each note independently keeps everything technically in
+  range while turning stepwise motion into octave leaps.
+
+Capo follows real practice: 0 for G, 2 for A, 5 for C; D is played out of open
+position rather than at the capo 7 the arithmetic would suggest.
+
+## Findings on the synthetic corpus
 
 Measured on the synthetic corpus (5 tunes × 3 difficulty levels, exact ground
 truth). Full numbers in [`reports/`](reports/).
@@ -104,8 +263,10 @@ truth). Full numbers in [`reports/`](reports/).
   claim ("correct 2–5 flagged notes") depends entirely on this number, so it is
   the thing to fix after form.
 
-**Verdict on the central hypothesis.** Not yet established. The evidence so far
-supports the *first half* of it — constrained range and simple rhythms do make
+**Verdict on the central hypothesis.** Not established, and the real recordings
+make that verdict firmer rather than softer: the repetition-and-consensus payoff
+cannot even be attempted while the extracted contour does not contain the
+melody. The evidence supports the *first half* of it — constrained range and simple rhythms do make
 extraction and beat tracking tractable — but the payoff from repetition and
 consensus cannot be claimed until form detection is reliable, because consensus
 only ever sees what form gives it. The apparatus to settle it now exists.

@@ -1,0 +1,23 @@
+##### thresholds 0.5-0.3
+sandy_river_belle     hard      0.70   0.84   0.33   0.15   0.25    n     Y     0.5
+-----------------------------------------------------------------------------------------
+MEAN                            0.88   0.91   0.60   0.44   0.54 0.73  0.80     0.7
+
+confidence: AUC 0.600  flag precision 0.14  flag recall 0.40  (16.1 flagged / 5.7 wrong per tune)
+octave-error rate: 0.024
+##### thresholds 0.3-0.15
+sandy_river_belle     hard      0.97   0.97   0.36   0.00   0.32    Y     Y     0.5
+-----------------------------------------------------------------------------------------
+MEAN                            0.90   0.91   0.67   0.35   0.50 0.93  0.67     0.7
+
+confidence: AUC 0.634  flag precision 0.14  flag recall 0.51  (23.0 flagged / 2.9 wrong per tune)
+octave-error rate: 0.011
+##### thresholds 0.2-0.1
+sandy_river_belle     hard      0.89   0.89   1.00   0.00   0.28    Y     Y     0.5
+-----------------------------------------------------------------------------------------
+MEAN                            0.84   0.86   0.66   0.20   0.39 1.00  0.73     0.7
+
+confidence: AUC 0.700  flag precision 0.16  flag recall 0.68  (37.4 flagged / 7.4 wrong per tune)
+octave-error rate: 0.015
+
+[exited with code 0]

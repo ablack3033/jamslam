@@ -172,9 +172,57 @@ the strongest argument for doing it first.
    separation (Demucs), still untested because its weights are unreachable here
    — untested, not disproven.
 
-### Also worth trying, cheap
+---
 
-Lower Basic Pitch's threshold and re-measure the existing pipeline end to end.
-The default discards 97% of the energy on this material. That is a one-line
-change against a measured cause, and it should be run before anything more
-elaborate.
+## Done: the threshold was lowered and re-measured
+
+Basic Pitch's note-creation thresholds are now config (`melody.basicpitch_*`)
+and the default moved from 0.5/0.3 to **0.3/0.15**.
+
+**What the extra notes are.** Not noise. Median note duration holds near 190 ms
+at every threshold and under 2% of notes are shorter than a sixteenth. Notes per
+second times median duration gives average polyphony, and that is what moves:
+
+| onset / frame | notes/sec | median duration | ⇒ simultaneous notes |
+|---|---|---|---|
+| 0.50 / 0.30 | 9.1 | 197 ms | 1.8 |
+| 0.30 / 0.15 | 36.7 | 186 ms | 6.8 |
+| 0.20 / 0.10 | 117.4 | 186 ms | 21.8 |
+| 0.10 / 0.03 | 240.1 | 151 ms | 36.3 |
+
+A jam has perhaps six to eight simultaneous pitches, so 0.3/0.15 is roughly
+faithful and the lower settings are over-detecting.
+
+**End to end against ground truth** on the synthetic corpus:
+
+| thresholds | pitch | onset | dur | key | form | octave err | wrong/tune | AUC |
+|---|---|---|---|---|---|---|---|---|
+| 0.5 / 0.3 | 0.88 | 0.60 | **0.44** | 0.73 | **0.80** | 0.024 | 5.7 | 0.600 |
+| **0.3 / 0.15** | **0.90** | **0.67** | 0.35 | **0.93** | 0.67 | **0.011** | **2.9** | 0.634 |
+| 0.2 / 0.1 | 0.84 | 0.66 | 0.20 | **1.00** | 0.73 | 0.015 | 7.4 | **0.700** |
+
+The fundamentals improve — key 0.73 → 0.93, octave errors halved, wrong notes
+per tune halved — and structure degrades: duration 0.44 → 0.35, form 0.80 →
+0.67. A denser pool makes the "loudest note above the floor" selector switch
+voices more often, which chops note boundaries and blurs the section clustering
+built on top of them.
+
+That trade is worth taking **only because of where this is going**. Under
+catalog matching, duration and form come from the matched setting; pitch and key
+are what the match is scored on. If the catalog approach is abandoned, revisit
+this default.
+
+**The methodological finding is the more valuable one.** The extraction-level
+proxies said lowering the threshold was harmful — repetition fell from 0.29 to
+0.19 on a real recording — while ground-truth note accuracy rose. That is the
+third time on this project a proxy has pointed the wrong way. The two reports
+are kept side by side deliberately:
+[`threshold-sweep-proxies.txt`](../reports/threshold-sweep-proxies.txt) and
+[`threshold-sweep-groundtruth.txt`](../reports/threshold-sweep-groundtruth.txt).
+
+It also sharpens the earlier conclusion that reranking cannot work. That was
+measured on the *default* threshold's candidate pool. At 0.3/0.15 the pool is
+much richer and its notes are of plausible duration, so a sufficiently strong
+prior — a specific known melody, not a generic stepwise preference — has real
+material to select from. Lowering the threshold does not fix melody selection;
+it makes catalog matching more likely to work.

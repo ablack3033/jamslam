@@ -62,7 +62,11 @@ class BasicPitchMelodyExtractor:
         with tempfile.TemporaryDirectory() as tmp:
             wav = Path(tmp) / "input.wav"
             write_wav(wav, audio)
-            _, _, note_events = predict(str(wav), ICASSP_2022_MODEL_PATH)
+            _, _, note_events = predict(
+                str(wav), ICASSP_2022_MODEL_PATH,
+                onset_threshold=self.config.basicpitch_onset_threshold,
+                frame_threshold=self.config.basicpitch_frame_threshold,
+            )
 
         return self._notes_to_contour(note_events, audio)
 

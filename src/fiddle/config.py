@@ -46,6 +46,42 @@ class MelodyConfig:
     voicing_tolerance: float = 0.2  # Melodia default; higher = more voiced
     filter_iterations: int = 3
 
+    # Basic Pitch's note-creation thresholds. These decide how much of the
+    # model's per-frame activation survives into discrete notes, and the
+    # defaults throw away a great deal: at 0.5/0.3 only about 3% of the
+    # posteriorgram's energy is retained, and what survives is the loudest,
+    # most sustained content -- the accompaniment (see docs/NEXT_STEPS.md).
+    #
+    # Lowering them does recover real material rather than noise: median note
+    # duration holds near 190 ms and under 2% of notes are shorter than a
+    # sixteenth. What it recovers is *simultaneous* notes -- average polyphony
+    # goes 1.8 -> 6.8 -> 22 -> 36 as the pair is lowered -- so the extra notes
+    # make melody selection harder, not easier, and measured worse end to end
+    # with the current "loudest note above the floor" rule.
+    #
+    # Measured end to end against ground truth on the synthetic corpus, which
+    # is the only place the question can be settled. Lowering 0.5/0.3 to
+    # 0.3/0.15 improves the fundamentals and costs structure:
+    #
+    #                    pitch  onset   dur    key   form  octave  wrong/tune
+    #   0.5 / 0.3         0.88   0.60   0.44   0.73   0.80  0.024      5.7
+    #   0.3 / 0.15        0.90   0.67   0.35   0.93   0.67  0.011      2.9
+    #   0.2 / 0.1         0.84   0.66   0.20   1.00   0.73  0.015      7.4
+    #
+    # 0.3/0.15 is the default because *which* notes and which key are right
+    # matters more than how long they are: duration and form both degrade
+    # because a denser pool makes the "loudest note" selector switch voices
+    # more often, chopping note boundaries. Under the catalog-matching plan
+    # (docs/NEXT_STEPS.md) duration and form come from the matched setting
+    # anyway, while pitch and key are what the match is scored on.
+    #
+    # Note for anyone re-running this: the extraction-level proxies said the
+    # opposite. Repetition fell from 0.29 to 0.19 on a real recording while
+    # ground-truth note accuracy rose. That is the third time on this project
+    # a proxy has pointed the wrong way; prefer the corpus with known answers.
+    basicpitch_onset_threshold: float = 0.3
+    basicpitch_frame_threshold: float = 0.15
+
 
 @dataclass(frozen=True)
 class CleanConfig:

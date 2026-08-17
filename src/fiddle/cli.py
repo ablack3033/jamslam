@@ -36,6 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     p_ev.add_argument("--difficulties", default="clean,jam,hard")
     p_ev.add_argument("--tune", action="append", help="restrict to these tune slugs")
     p_ev.add_argument("--backend", default=None, help="melody backend override")
+    p_ev.add_argument("--config", type=Path, help="JSON config overrides")
     p_ev.add_argument("--json", type=Path, help="write the full report here")
 
     p_ab = sub.add_parser("ablate", help="compare configurations on the corpus")
@@ -185,7 +186,10 @@ def _cmd_eval(args) -> int:
     from .corpus.library import ALL_TUNES, get_tune
     from .eval.runner import format_table, run_dataset, run_synthetic, save_report
 
-    cfg = Config()
+    # Honour --config here too. Without it the only way to measure a config
+    # change against ground truth was to edit the defaults, which is exactly
+    # the sort of thing that makes an ablation unreproducible.
+    cfg = _config_from_args(args)
     if args.backend:
         cfg = cfg.with_overrides(melody={"backend": args.backend})
 

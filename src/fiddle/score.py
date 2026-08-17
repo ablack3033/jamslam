@@ -60,7 +60,10 @@ def tune_to_stream(tune: Tune, mark_uncertain_below: float = 0.7):
                 m.insert(0.0, meter.TimeSignature(_meter_string(bar_beats)))
                 current_meter = bar_beats
             for n in measure.notes:
-                local = n.start_beats - bar_start
+                # Clamp rather than trust: a note landing outside its own bar
+                # means an upstream inconsistency, and a negative offset makes
+                # music21 fail deep inside rest generation with an opaque error.
+                local = min(max(n.start_beats - bar_start, Fraction(0)), bar_beats)
                 if local > offset:
                     # A gap inside the bar is a rest we did not explicitly emit.
                     r = m21note.Rest(quarterLength=float(local - offset))

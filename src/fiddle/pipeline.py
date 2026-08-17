@@ -180,18 +180,27 @@ def _fallback_sections(notes: list[TimedNote], beats_per_bar: int) -> list[TuneS
     """
     if not notes:
         return []
-    measures: dict[int, Measure] = {}
-    for n in notes:
-        idx = int(float(n.start_beats) // beats_per_bar)
-        m = measures.setdefault(idx, Measure(notes=[], number=idx + 1))
-        m.notes.append(
+    # Measures must be contiguous and section-relative, because the score
+    # exporter walks them in order and accumulates bar positions. Numbering by
+    # absolute bar index instead would leave gaps wherever the performance had a
+    # silent bar, and every later barline would land in the wrong place.
+    indices = [int(float(n.start_beats) // beats_per_bar) for n in notes]
+    first = min(indices)
+    origin = Fraction(first * beats_per_bar)
+
+    measures: dict[int, Measure] = {
+        i: Measure(notes=[], number=i + 1)
+        for i in range(max(indices) - first + 1)
+    }
+    for n, idx in zip(notes, indices):
+        measures[idx - first].notes.append(
             Note(
                 pitch=n.pitch,
-                start_beats=n.start_beats,
+                start_beats=n.start_beats - origin,
                 duration_beats=n.duration_beats,
                 confidence=n.confidence,
                 agreement=1.0,
             )
         )
-    ordered = [measures[k] for k in sorted(measures)]
-    return [TuneSection(name="A", measures=ordered, repeats=1)]
+    return [TuneSection(name="A", measures=[measures[k] for k in sorted(measures)],
+                        repeats=1)]

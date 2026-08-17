@@ -164,3 +164,47 @@ def test_config_overrides_are_isolated():
     assert base.consensus.enabled is True
     assert variant.consensus.enabled is False
     assert variant.melody.backend == base.melody.backend
+
+
+def test_unsectioned_fallback_exports_valid_musicxml(tmp_path):
+    """The no-form fallback must still produce a readable score.
+
+    This path is what runs whenever form detection fails, which on real jam
+    audio is the common case -- so it is the *most* exercised path in practice,
+    not an edge case. It previously crashed music21 deep inside rest generation
+    because measures were numbered by absolute bar index, leaving gaps wherever
+    the performance had a silent bar.
+    """
+    from fractions import Fraction
+
+    from music21 import converter
+
+    from fiddle.pipeline import _fallback_sections
+    from fiddle.domain import TimedNote, Tune
+    from fiddle.score import export_musicxml
+
+    # Notes starting well after beat 0, with a silent bar in the middle.
+    starts = [40, 40.5, 41, 41.5, 48, 48.5, 49, 50]
+    notes = [
+        TimedNote(
+            pitch=p, start_beats=Fraction(s).limit_denominator(64),
+            duration_beats=Fraction(1, 2), confidence=0.8,
+            start_sec=float(s) * 0.5, duration_sec=0.25, pitch_midi=float(p),
+        )
+        for p, s in zip([74, 76, 78, 79, 81, 79, 78, 76], starts)
+    ]
+    sections = _fallback_sections(notes, beats_per_bar=4)
+    assert sections and sections[0].measures
+
+    # Measures must be contiguous and start at bar 1.
+    numbers = [m.number for m in sections[0].measures]
+    assert numbers == list(range(1, len(numbers) + 1))
+    # Every note must sit inside its own bar.
+    for i, m in enumerate(sections[0].measures):
+        for n in m.notes:
+            assert i * 4 <= float(n.start_beats) < (i + 1) * 4
+
+    tune = Tune(key="D major", meter="4/4", tempo=120.0, sections=sections,
+                title="Fallback", analysis={"key_sharps": 2})
+    path = export_musicxml(tune, tmp_path / "fallback.musicxml")
+    assert len(list(converter.parse(str(path)).flatten().notes)) == 8

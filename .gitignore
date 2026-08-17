@@ -19,3 +19,6 @@ datasets/tunes/*/recording.*
 *.notes.json
 *.diagnostics.png
 reports/*.err
+
+# Scratch working area (audio copies, intermediate runs)
+work/
